@@ -3291,6 +3291,25 @@ function App() {
     mealsReady:'0',mealPrepStreak:'0',moneySaved:'0',nextCampDate:'',notes:'',
   }));
 
+  // ── Daily reset ────────────────────────────────────────────────────────────
+  // Runs on every app open - if it's a new day, reset daily stats
+  useEffect(()=>{
+    const today = new Date().toDateString();
+    const lastOpen = LS.get('lastOpenDate','');
+    if(lastOpen !== today){
+      LS.set('lastOpenDate', today);
+      // Reset daily stats but keep persistent ones (weight, streak, money saved)
+      setDashData(prev=>({
+        ...prev,
+        caloriesToday:'0',
+        proteinToday:'0',
+      }));
+      // Reset water
+      LS.set('waterTapped', 0);
+      // Keep all logged meals for analytics history - don't clear them
+    }
+  },[]);
+
   // Persist to localStorage whenever state changes
   useEffect(()=>{ LS.set('favs',favs); },[favs]);
   useEffect(()=>{ LS.set('shopItems',shopItems); },[shopItems]);
