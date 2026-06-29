@@ -1297,12 +1297,17 @@ const Dashboard = ({onNav,favs,dashData:d,setDashData:setD,loggedMeals,removeLog
   const [waterTapped, setWaterTapped] = useState(()=>LS.get('waterTapped', 0));
   useEffect(()=>{ LS.set('waterTapped', waterTapped); },[waterTapped]);
 
+  // Always read calorie + protein targets live from portionGoal so Calorie Calc changes show instantly
+  const liveGoal = LS.get('portionGoal', {calories:'2000', protein:'180'});
+  const liveCalTarget = Number(liveGoal.calories || d.calorieTarget || 2000);
+  const liveProtTarget = Number(liveGoal.protein || d.proteinTarget || 180);
+
   const statCards = [
     {icon:'🔥', label:'Meal Prep Streak', value:`${d.mealPrepStreak} day${Number(d.mealPrepStreak)!==1?'s':''}`, color:T.orange, sub:Number(d.mealPrepStreak)>=7?'🏆 One week!':Number(d.mealPrepStreak)>=3?'Keep it going!':'Log a meal to start'},
     {icon:'⚖️', label:'Current Weight', value:`${d.weight} kg`, color:'#60B8D4',
       sub: d.goalWeight ? `Goal: ${d.goalWeight}kg` : ''},
     {icon:'💪', label:'Protein Today', value:`${d.proteinToday}g`, color:'#5AC983',
-      sub:`Target: ${d.proteinTarget}g`},
+      sub:`Target: ${liveProtTarget}g`},
     {icon:'💧', label:'Water Today', value:`${waterTapped}L / ${d.waterTarget}L`, color:'#60B8D4'},
     {icon:'🍱', label:'Meals Ready', value:d.mealsReady, color:'#B88AE0'},
     {icon:'💰', label:'Saved This Week', value:`$${Number(d.moneySaved||0).toFixed(2)}`, color:'#5AC983',
@@ -1352,7 +1357,7 @@ const Dashboard = ({onNav,favs,dashData:d,setDashData:setD,loggedMeals,removeLog
               {k:'proteinToday',l:'Protein Today (g)',ph:'124',type:'number'},
               {k:'proteinTarget',l:'Protein Target (g)',ph:'180',type:'number'},
               {k:'caloriesToday',l:'Calories Today',ph:'1840',type:'number'},
-              {k:'calorieTarget',l:'Daily Calorie Target (from Calorie Calc)',ph:'2000',type:'number'},
+
               {k:'waterLitres',l:'Water Today (L)',ph:'1.5',type:'number'},
               {k:'waterTarget',l:'Water Target (L)',ph:'3',type:'number'},
               {k:'mealsReady',l:'Meals in Fridge',ph:'5',type:'number'},
@@ -1437,8 +1442,8 @@ const Dashboard = ({onNav,favs,dashData:d,setDashData:setD,loggedMeals,removeLog
           textTransform:'uppercase',marginBottom:14}}>Today's Targets</div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:14}}>
           {[
-            {label:'Protein',cur:Number(d.proteinToday),max:Number(d.proteinTarget),unit:'g',color:'#5AC983'},
-            {label:'Calories',cur:Number(d.caloriesToday),max:Number(d.calorieTarget),unit:'kcal',color:T.orange},
+            {label:'Protein',cur:Number(d.proteinToday),max:liveProtTarget,unit:'g',color:'#5AC983'},
+            {label:'Calories',cur:Number(d.caloriesToday),max:liveCalTarget,unit:'kcal',color:T.orange},
             {label:'Water',cur:waterTapped,max:Number(d.waterTarget),unit:'L',color:'#60B8D4'},
           ].map(g=>(
             <div key={g.label}>
@@ -2653,7 +2658,7 @@ function App() {
   const [progressEntries,setProgressEntries]=useState(()=>LS.get('progressEntries',[]));
   const [dashData,setDashData]=useState(()=>LS.get('dashData',{
     weight:'86',goalWeight:'80',proteinToday:'0',proteinTarget:'180',
-    caloriesToday:'0',calorieTarget:String(Math.max(1200,Number(LS.get('portionGoal',{calories:'2000'}).calories||2000))),waterLitres:'0',waterTarget:'3',
+    caloriesToday:'0',calorieTarget:'2000',waterLitres:'0',waterTarget:'3',
     mealsReady:'0',mealPrepStreak:'0',moneySaved:'0',nextCampDate:'',notes:'',
   }));
 
