@@ -745,6 +745,95 @@ const RecipeCard = ({recipe:r,onOpen,onFavToggle,isFav,onShopAdd,onLogMeal,logge
 
 // --------------------------------------------------
 
+
+const PortionGuide = ({recipe:r}) => {
+  const goal = LS.get('portionGoal', {calories:'2000', meals:'5', protein:'180'});
+  const calsPerMeal = Math.round(Number(goal.calories||2000) / Number(goal.meals||5));
+  const protPerMeal = Math.round(Number(goal.protein||180) / Number(goal.meals||5));
+  const servesNeeded = Math.round((calsPerMeal / r.macros.calories) * 10) / 10;
+  const [containers, setContainers] = useState('');
+
+  const parseIngredient = (ing, n) => {
+    const fracs = {'half':0.5, '1/2':0.5, '1/4':0.25, '3/4':0.75};
+    const parts = ing.split(' ');
+    let num = parseFloat(parts[0]);
+    if (isNaN(num)) return null;
+    const divided = num / n;
+    const unit = parts[1] || '';
+    const name = parts.slice(2).join(' ').split('(')[0].trim();
+    let display = '';
+    if (divided < 0.1) display = 'pinch';
+    else if (divided < 1 && unit.toLowerCase() === 'cup') display = Math.round(divided*16) + ' tbsp';
+    else if (divided < 1 && unit.toLowerCase() === 'tbsp') display = Math.round(divided*3) + ' tsp';
+    else if (divided >= 100) display = Math.round(divided) + 'g';
+    else display = (Math.round(divided*10)/10) + ' ' + unit;
+    return {name, display};
+  };
+
+  const n = Math.max(1, Number(containers) || 1);
+  const calsEach = Math.round(r.macros.calories * servesNeeded / (containers ? n : 1));
+  const protEach = Math.round(r.macros.protein * servesNeeded / (containers ? n : 1));
+
+  return (
+    <div style={{background:T.orangeDim, border:'1px solid rgba(212,98,42,0.3)',
+      borderRadius:12, padding:'14px 16px'}}>
+      <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:T.orange,
+        textTransform:'uppercase',marginBottom:10}}>Your Portion Guide</div>
+      <div style={{fontSize:13,color:T.cream,lineHeight:1.8,marginBottom:12}}>
+        Your meal target: <strong style={{color:T.orange}}>{calsPerMeal} kcal</strong> and <strong style={{color:'#5AC983'}}>{protPerMeal}g protein</strong><br/>
+        For this recipe: eat <strong style={{color:T.orange}}>{servesNeeded}x serves</strong><br/>
+        That gives you <strong style={{color:'#5AC983'}}>{Math.round(r.macros.protein*servesNeeded)}g protein</strong> and <strong style={{color:T.orange}}>{Math.round(r.macros.calories*servesNeeded)} kcal</strong>
+      </div>
+
+      <div style={{borderTop:'1px solid rgba(212,98,42,0.2)',paddingTop:12,marginTop:4}}>
+        <div style={{fontSize:11,fontWeight:700,color:T.orange,letterSpacing:1,
+          textTransform:'uppercase',marginBottom:8}}>Container Ingredient Guide</div>
+        <div style={{fontSize:12,color:T.muted,marginBottom:10}}>
+          How many containers did you fill?
+        </div>
+        <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
+          <input type="number" placeholder="e.g. 5" value={containers}
+            onChange={e=>setContainers(e.target.value)}
+            min="1" max="20"
+            style={{background:T.surface,border:'1px solid rgba(212,98,42,0.4)',
+              borderRadius:8,color:T.cream,fontSize:14,padding:'8px 12px',
+              fontFamily:'inherit',width:120,outline:'none'}}
+          />
+          <span style={{fontSize:13,color:T.muted}}>containers</span>
+        </div>
+
+        {containers && Number(containers) > 0 && (
+          <div style={{background:T.surface,border:'1px solid rgba(212,98,42,0.3)',
+            borderRadius:10,padding:14}}>
+            <div style={{fontSize:11,fontWeight:700,color:T.orange,letterSpacing:1,
+              textTransform:'uppercase',marginBottom:10}}>
+              Per container (1 of {containers})
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:0}}>
+              {r.ingredients.filter(i=>!i.toLowerCase().startsWith('note:')).map((ing,i)=>{
+                const parsed = parseIngredient(ing, Number(containers));
+                return (
+                  <div key={i} style={{display:'flex',justifyContent:'space-between',
+                    padding:'7px 0',borderBottom:'1px solid rgba(51,51,58,0.8)',
+                    fontSize:13}}>
+                    <span style={{color:T.muted}}>{ing.split(' ').slice(2).join(' ').split('(')[0].trim()||ing}</span>
+                    <strong style={{color:T.orange}}>{parsed ? parsed.display : '-'}</strong>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{marginTop:12,background:T.elevated,borderRadius:8,
+              padding:'10px 12px',display:'flex',gap:16,flexWrap:'wrap'}}>
+              <span style={{fontSize:13,fontWeight:700,color:'#5AC983'}}>{protEach}g protein</span>
+              <span style={{fontSize:13,fontWeight:700,color:T.orange}}>{calsEach} kcal</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Serves selector component - proper hook usage
 const LogMealButton = ({recipe, onLogMeal, onClose}) => {
   const [serves, setServes] = useState(1);
@@ -936,108 +1025,7 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
                 </div>
               </div>
 
-              {/* Quick portion guide */}
-              {(()=>{
-                const goal=LS.get('portionGoal',{calories:'2000',meals:'5',protein:'180'});
-                const calsPerMeal=Math.round(Number(goal.calories||2000)/Number(goal.meals||5));
-                const protPerMeal=Math.round(Number(goal.protein||180)/Number(goal.meals||5));
-                const recipeCalRatio=calsPerMeal/r.macros.calories;
-                const servesNeeded=Math.round(recipeCalRatio*10)/10;
-                return (
-                  <div style={{background:T.orangeDim,border:`1px solid ${T.orange}44`,
-                    borderRadius:12,padding:'14px 16px'}}>
-                    <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:T.orange,
-                      textTransform:'uppercase',marginBottom:10}}>Your Portion Guide</div>
-                    <div style={{fontSize:13,color:T.cream,lineHeight:1.7}}>
-                      Your meal target: <strong style={{color:T.orange}}>{calsPerMeal} kcal</strong> and <strong style={{color:'#5AC983'}}>{protPerMeal}g protein</strong>
-                      <br/>
-                      For this recipe: eat <strong style={{color:T.orange}}>{servesNeeded}x serves</strong>
-                      <br/>
-                      That gives you <strong style={{color:'#5AC983'}}>{Math.round(r.macros.protein*servesNeeded)}g protein</strong> and <strong style={{color:T.orange}}>{Math.round(r.macros.calories*servesNeeded)} kcal</strong>
-                    </div>
-                    <div style={{marginTop:8,fontSize:11,color:T.muted}}>
-                      Set your daily calorie target in <strong style={{color:T.cream}}>Calorie Calc</strong> to update this.
-                    </div>
-                    {/* Per-container ingredient breakdown */}
-                    <div style={{marginTop:14,borderTop:`1px solid ${T.orange}33`,paddingTop:14}}>
-                      <div style={{fontSize:11,fontWeight:700,color:T.orange,letterSpacing:1,
-                        textTransform:'uppercase',marginBottom:8}}>Container Ingredient Guide</div>
-                      <div style={{fontSize:12,color:T.muted,marginBottom:10}}>
-                        How many containers did you fill? I'll split each ingredient for you.
-                      </div>
-                      <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
-                        <input
-                          type="number"
-                          placeholder="Number of containers"
-                          id={`containers-${r.id}`}
-                          min="1" max="20"
-                          style={{
-                            background:T.surface,border:`1px solid ${T.orange}55`,borderRadius:8,
-                            color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',
-                            width:200,outline:'none',
-                          }}
-                          onInput={e=>{
-                            const n=Math.max(1,Number(e.target.value)||1);
-                            const el=document.getElementById('container-result-'+r.id);
-                            if(!el) return;
-                            if(!e.target.value){ el.innerHTML=''; return; }
-                            
-                            // Parse ingredients and divide by n
-                            const parseIngredient=(ing)=>{
-                              // Extract number from ingredient string
-                              const match=ing.match(/^([\d./½¼¾]+)\s*([a-zA-Z]*)\s+(.+)/);
-                              if(!match) return {raw:ing, divided:null};
-                              
-                              let amount=match[1];
-                              const unit=match[2];
-                              const name=match[3];
-                              
-                              // Convert fractions
-                              const fracs={'½':0.5,'¼':0.25,'¾':0.75};
-                              let num=fracs[amount]||Number(amount.replace(/[^0-9.]/g,''));
-                              if(isNaN(num)||num===0) return {raw:ing, divided:null};
-                              
-                              const divided=num/n;
-                              let display='';
-                              if(divided<0.1) display='pinch/dash';
-                              else if(divided<1 && unit.toLowerCase().includes('cup')) display=Math.round(divided*16)+' tbsp';
-                              else if(divided<1 && unit.toLowerCase().includes('tbsp')) display=Math.round(divided*3)+' tsp';
-                              else if(divided>=100) display=Math.round(divided)+'g (approx)';
-                              else display=(Math.round(divided*10)/10)+' '+unit;
-                              
-                              return {name,unit,display,raw:ing};
-                            };
-                            
-                            const lines=r.ingredients
-                              .filter(i=>!i.toLowerCase().startsWith('note:'))
-                              .map(ing=>{
-                                const p=parseIngredient(ing);
-                                if(!p.divided) return '<li style="color:#8A8A92;font-size:12px">'+ing+'</li>';
-                                return '<li style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #33333A;font-size:13px"><span style="color:#8A8A92">'+ing.replace(/^[\d./½¼¾]+\s*[a-zA-Z]*\s+/,'').split('(')[0].trim()+'</span><strong style="color:#D4622A">'+p.display+'</strong></li>';
-                              }).join('');
-                            
-                            const calsEach=Math.round(r.macros.calories/n*servesNeeded);
-                            const protEach=Math.round(r.macros.protein/n*servesNeeded);
-                            
-                            el.innerHTML=
-                              '<div style="background:#1E1E22;border:1px solid #D4622A44;border-radius:10px;padding:14px;margin-top:4px">'+
-                                '<div style="font-size:11px;font-weight:700;color:#D4622A;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Per container (1 of '+n+')</div>'+
-                                '<ul style="list-style:none;margin-bottom:12px">'+lines+'</ul>'+
-                                '<div style="background:#28282E;border-radius:8px;padding:10px 12px;display:flex;gap:16px;flex-wrap:wrap">'+
-                                  '<span style="font-size:13px;font-weight:700;color:#5AC983">'+protEach+'g protein</span>'+
-                                  '<span style="font-size:13px;font-weight:700;color:#D4622A">'+calsEach+' kcal</span>'+
-                                  '<span style="font-size:11px;color:#8A8A92">based on your '+calsPerMeal+' kcal meal target</span>'+
-                                '</div>'+
-                              '</div>';
-                          }}
-                        />
-                        <span style={{fontSize:13,color:T.muted}}>containers</span>
-                      </div>
-                      <div id={`container-result-${r.id}`}></div>
-                    </div>
-                  </div>
-                );
-              })()}
+              <PortionGuide recipe={r} />
               <div>
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:T.muted,
                   textTransform:'uppercase',marginBottom:10}}>📝 Personal Notes</div>
