@@ -958,37 +958,82 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
                     <div style={{marginTop:8,fontSize:11,color:T.muted}}>
                       Set your daily calorie target in <strong style={{color:T.cream}}>Calorie Calc</strong> to update this.
                     </div>
-                    {/* Batch weight input */}
+                    {/* Per-container ingredient breakdown */}
                     <div style={{marginTop:14,borderTop:`1px solid ${T.orange}33`,paddingTop:14}}>
                       <div style={{fontSize:11,fontWeight:700,color:T.orange,letterSpacing:1,
-                        textTransform:'uppercase',marginBottom:8}}>Batch Weight Calculator</div>
+                        textTransform:'uppercase',marginBottom:8}}>Container Ingredient Guide</div>
                       <div style={{fontSize:12,color:T.muted,marginBottom:10}}>
-                        Weighed your whole batch? Enter total weight to get your scoop size.
+                        How many containers did you fill? I'll split each ingredient for you.
                       </div>
-                      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                      <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
                         <input
                           type="number"
-                          placeholder="Total batch weight (g)"
-                          id={`batch-weight-${r.id}`}
+                          placeholder="Number of containers"
+                          id={`containers-${r.id}`}
+                          min="1" max="20"
                           style={{
                             background:T.surface,border:`1px solid ${T.orange}55`,borderRadius:8,
-                            color:T.cream,fontSize:13,padding:'8px 12px',fontFamily:'inherit',
+                            color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',
                             width:200,outline:'none',
                           }}
                           onInput={e=>{
-                            const total=Number(e.target.value);
-                            const el=document.getElementById('batch-result-'+r.id);
-                            if(el && total>0){
-                              const gramsPerStdServe = total/r.serves;
-                              const gramsForTarget = Math.round(gramsPerStdServe*servesNeeded);
-                              el.innerHTML = `<strong style="color:#D4622A;font-size:22px">${gramsForTarget}g</strong> <span style="color:#8A8A92;font-size:12px">per meal container</span><br><span style="color:#8A8A92;font-size:11px">(${Math.round(gramsPerStdServe)}g = 1 standard serve)</span>`;
-                            } else if(el) {
-                              el.innerHTML='';
-                            }
+                            const n=Math.max(1,Number(e.target.value)||1);
+                            const el=document.getElementById('container-result-'+r.id);
+                            if(!el) return;
+                            if(!e.target.value){ el.innerHTML=''; return; }
+                            
+                            // Parse ingredients and divide by n
+                            const parseIngredient=(ing)=>{
+                              // Extract number from ingredient string
+                              const match=ing.match(/^([\d./½¼¾]+)\s*([a-zA-Z]*)\s+(.+)/);
+                              if(!match) return {raw:ing, divided:null};
+                              
+                              let amount=match[1];
+                              const unit=match[2];
+                              const name=match[3];
+                              
+                              // Convert fractions
+                              const fracs={'½':0.5,'¼':0.25,'¾':0.75,'⅓':0.333,'⅔':0.667};
+                              let num=fracs[amount]||Number(amount.replace(/[^0-9.]/g,''));
+                              if(isNaN(num)||num===0) return {raw:ing, divided:null};
+                              
+                              const divided=num/n;
+                              let display='';
+                              if(divided<0.1) display='pinch/dash';
+                              else if(divided<1 && unit.toLowerCase().includes('cup')) display=Math.round(divided*16)+' tbsp';
+                              else if(divided<1 && unit.toLowerCase().includes('tbsp')) display=Math.round(divided*3)+' tsp';
+                              else if(divided>=100) display=Math.round(divided)+'g (approx)';
+                              else display=(Math.round(divided*10)/10)+' '+unit;
+                              
+                              return {name,unit,display,raw:ing};
+                            };
+                            
+                            const lines=r.ingredients
+                              .filter(i=>!i.toLowerCase().startsWith('note:'))
+                              .map(ing=>{
+                                const p=parseIngredient(ing);
+                                if(!p.divided) return '<li style="color:#8A8A92;font-size:12px">'+ing+'</li>';
+                                return '<li style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #33333A;font-size:13px"><span style="color:#8A8A92">'+ing.replace(/^[\d./½¼¾]+\s*[a-zA-Z]*\s+/,'').split('(')[0].trim()+'</span><strong style="color:#D4622A">'+p.display+'</strong></li>';
+                              }).join('');
+                            
+                            const calsEach=Math.round(r.macros.calories/n*servesNeeded);
+                            const protEach=Math.round(r.macros.protein/n*servesNeeded);
+                            
+                            el.innerHTML=\`
+                              <div style="background:#1E1E22;border:1px solid #D4622A44;border-radius:10px;padding:14px;margin-top:4px">
+                                <div style="font-size:11px;font-weight:700;color:#D4622A;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Per container (1 of \${n})</div>
+                                <ul style="list-style:none;margin-bottom:12px">\${lines}</ul>
+                                <div style="background:#28282E;border-radius:8px;padding:10px 12px;display:flex;gap:16px;flex-wrap:wrap">
+                                  <span style="font-size:13px;font-weight:700;color:#5AC983">\${protEach}g protein</span>
+                                  <span style="font-size:13px;font-weight:700;color:#D4622A">\${calsEach} kcal</span>
+                                  <span style="font-size:11px;color:#8A8A92">based on your \${calsPerMeal} kcal meal target</span>
+                                </div>
+                              </div>\`;
                           }}
                         />
-                        <div id={`batch-result-${r.id}`} style={{fontSize:13,color:T.cream}}></div>
+                        <span style={{fontSize:13,color:T.muted}}>containers</span>
                       </div>
+                      <div id={`container-result-${r.id}`}></div>
                     </div>
                   </div>
                 );
