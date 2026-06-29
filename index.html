@@ -744,6 +744,37 @@ const RecipeCard = ({recipe:r,onOpen,onFavToggle,isFav,onShopAdd,onLogMeal,logge
 };
 
 // --------------------------------------------------
+
+// Serves selector component - proper hook usage
+const LogMealButton = ({recipe, onLogMeal, onClose}) => {
+  const [serves, setServes] = useState(1);
+  if (!onLogMeal) return null;
+  return (
+    <div style={{display:'flex',gap:6,alignItems:'center',flex:1}}>
+      <button onClick={()=>setServes(s=>Math.max(0.5,parseFloat((s-0.5).toFixed(1))))} style={{
+        background:T.elevated,border:`1px solid ${T.border}`,color:T.cream,
+        borderRadius:7,width:34,height:36,cursor:'pointer',fontSize:18,fontWeight:700,
+        display:'flex',alignItems:'center',justifyContent:'center',
+      }}>-</button>
+      <div style={{
+        background:T.elevated,border:`1px solid ${T.orange}`,
+        borderRadius:7,padding:'6px 12px',fontSize:14,fontWeight:800,
+        color:T.orange,textAlign:'center',minWidth:52,
+      }}>{serves}x</div>
+      <button onClick={()=>setServes(s=>parseFloat((s+0.5).toFixed(1)))} style={{
+        background:T.elevated,border:`1px solid ${T.border}`,color:T.cream,
+        borderRadius:7,width:34,height:36,cursor:'pointer',fontSize:18,fontWeight:700,
+        display:'flex',alignItems:'center',justifyContent:'center',
+      }}>+</button>
+      <button onClick={()=>{ onLogMeal(recipe,serves); onClose(); }} style={{
+        background:T.green,border:'none',color:'#fff',
+        borderRadius:7,padding:'8px 14px',cursor:'pointer',
+        fontSize:13,fontWeight:700,fontFamily:'inherit',flex:1,
+      }}>+ Log {serves}x</button>
+    </div>
+  );
+};
+
 const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) => {
   const [tab,setTab]=useState('recipe');
   useEffect(()=>{
@@ -954,31 +985,7 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
           display:'flex',gap:10,background:T.elevated,flexWrap:'wrap',
         }}>
           <Btn onClick={()=>onShopAdd(r)} style={{flex:1}}>🛒 Add to Shopping List</Btn>
-          {(()=>{
-            const [serves,setServes]=React.useState(1);
-            return (
-              <div style={{display:'flex',gap:6,alignItems:'center',flex:1}}>
-                <button onClick={()=>setServes(s=>Math.max(0.5,s-0.5))} style={{
-                  background:T.elevated,border:`1px solid ${T.border}`,color:T.cream,
-                  borderRadius:7,width:30,height:36,cursor:'pointer',fontSize:16,fontWeight:700,
-                }}>-</button>
-                <div style={{
-                  background:T.elevated,border:`1px solid ${T.border}`,
-                  borderRadius:7,padding:'6px 10px',fontSize:13,fontWeight:700,
-                  color:T.cream,textAlign:'center',minWidth:50,
-                }}>{serves}x</div>
-                <button onClick={()=>setServes(s=>s+0.5)} style={{
-                  background:T.elevated,border:`1px solid ${T.border}`,color:T.cream,
-                  borderRadius:7,width:30,height:36,cursor:'pointer',fontSize:16,fontWeight:700,
-                }}>+</button>
-                <button onClick={()=>{ if(onLogMeal){onLogMeal(r,serves);onClose();} }} style={{
-                  background:T.green,border:'none',color:'#fff',
-                  borderRadius:7,padding:'8px 14px',cursor:'pointer',
-                  fontSize:13,fontWeight:700,fontFamily:'inherit',flex:1,
-                }}>+ Log {serves}x serve{serves!==1?'s':''}</button>
-              </div>
-            );
-          })()}
+          <LogMealButton recipe={r} onLogMeal={onLogMeal} onClose={onClose} />
           <Btn onClick={()=>onFavToggle(r.id)} variant={isFav?'success':'ghost'}>
             {isFav?'♥ Saved':'♡ Save Recipe'}
           </Btn>
