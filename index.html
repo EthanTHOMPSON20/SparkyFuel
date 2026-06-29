@@ -958,6 +958,38 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
                     <div style={{marginTop:8,fontSize:11,color:T.muted}}>
                       Set your daily calorie target in <strong style={{color:T.cream}}>Calorie Calc</strong> to update this.
                     </div>
+                    {/* Batch weight input */}
+                    <div style={{marginTop:14,borderTop:`1px solid ${T.orange}33`,paddingTop:14}}>
+                      <div style={{fontSize:11,fontWeight:700,color:T.orange,letterSpacing:1,
+                        textTransform:'uppercase',marginBottom:8}}>Batch Weight Calculator</div>
+                      <div style={{fontSize:12,color:T.muted,marginBottom:10}}>
+                        Weighed your whole batch? Enter total weight to get your scoop size.
+                      </div>
+                      <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+                        <input
+                          type="number"
+                          placeholder="Total batch weight (g)"
+                          id={`batch-weight-${r.id}`}
+                          style={{
+                            background:T.surface,border:`1px solid ${T.orange}55`,borderRadius:8,
+                            color:T.cream,fontSize:13,padding:'8px 12px',fontFamily:'inherit',
+                            width:200,outline:'none',
+                          }}
+                          onInput={e=>{
+                            const total=Number(e.target.value);
+                            const el=document.getElementById('batch-result-'+r.id);
+                            if(el && total>0){
+                              const gramsPerStdServe = total/r.serves;
+                              const gramsForTarget = Math.round(gramsPerStdServe*servesNeeded);
+                              el.innerHTML = `<strong style="color:#D4622A;font-size:22px">${gramsForTarget}g</strong> <span style="color:#8A8A92;font-size:12px">per meal container</span><br><span style="color:#8A8A92;font-size:11px">(${Math.round(gramsPerStdServe)}g = 1 standard serve)</span>`;
+                            } else if(el) {
+                              el.innerHTML='';
+                            }
+                          }}
+                        />
+                        <div id={`batch-result-${r.id}`} style={{fontSize:13,color:T.cream}}></div>
+                      </div>
+                    </div>
                   </div>
                 );
               })()}
