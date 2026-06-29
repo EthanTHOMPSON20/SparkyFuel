@@ -1352,7 +1352,7 @@ const Dashboard = ({onNav,favs,dashData:d,setDashData:setD,loggedMeals,removeLog
               {k:'proteinToday',l:'Protein Today (g)',ph:'124',type:'number'},
               {k:'proteinTarget',l:'Protein Target (g)',ph:'180',type:'number'},
               {k:'caloriesToday',l:'Calories Today',ph:'1840',type:'number'},
-              {k:'calorieTarget',l:'Calorie Target',ph:'2400',type:'number'},
+              {k:'calorieTarget',l:'Daily Calorie Target (from Calorie Calc)',ph:'2000',type:'number'},
               {k:'waterLitres',l:'Water Today (L)',ph:'1.5',type:'number'},
               {k:'waterTarget',l:'Water Target (L)',ph:'3',type:'number'},
               {k:'mealsReady',l:'Meals in Fridge',ph:'5',type:'number'},
@@ -2300,7 +2300,15 @@ const PortionCalcPage = ({dashData}) => {
   }));
   const [saved, setSaved] = useState(false);
 
-  const saveGoal = () => { LS.set('portionGoal', goal); setSaved(true); setTimeout(()=>setSaved(false),2000); };
+  const saveGoal = () => {
+    const goalWithDeficit = {...goal, calories: String(deficitCals)};
+    LS.set('portionGoal', goalWithDeficit);
+    // Sync calorie target to dashboard
+    const currentDash = LS.get('dashData', {});
+    LS.set('dashData', {...currentDash, calorieTarget: String(deficitCals), proteinToday: currentDash.proteinToday||'0'});
+    setSaved(true);
+    setTimeout(()=>setSaved(false),2000);
+  };
 
   // Activity multipliers
   const activityMult = {sedentary:1.2, light:1.375, moderate:1.55, active:1.725, very:1.9};
@@ -2423,7 +2431,7 @@ const PortionCalcPage = ({dashData}) => {
           {[
             {icon:'🔥',label:'BMR',value:`${bmr} kcal`,sub:'Calories at rest',color:T.muted},
             {icon:'⚡',label:'TDEE',value:`${tdee} kcal`,sub:'Total daily burn',color:'#60B8D4'},
-            {icon:'🎯',label:'Eat This Much',value:`${deficitCals} kcal`,sub:`${goal.deficitTarget} cal deficit`,color:T.orange},
+            {icon:'🎯',label:'YOUR DAILY TARGET',value:`${deficitCals} kcal`,sub:`TDEE ${tdee} - deficit ${goal.deficitTarget} = ${deficitCals}`,color:T.orange},
             {icon:'💪',label:'Protein',value:`${goal.protein}g`,sub:`${proteinPerMeal}g per meal`,color:'#5AC983'},
             {icon:'🌾',label:'Carbs',value:`${carbsG}g`,sub:'Per day',color:'#B88AE0'},
             {icon:'🥑',label:'Fat',value:`${fatG}g`,sub:'Per day',color:'#E0B84A'},
@@ -2645,7 +2653,7 @@ function App() {
   const [progressEntries,setProgressEntries]=useState(()=>LS.get('progressEntries',[]));
   const [dashData,setDashData]=useState(()=>LS.get('dashData',{
     weight:'86',goalWeight:'80',proteinToday:'0',proteinTarget:'180',
-    caloriesToday:'0',calorieTarget:'2400',waterLitres:'0',waterTarget:'3',
+    caloriesToday:'0',calorieTarget:String(Math.max(1200,Number(LS.get('portionGoal',{calories:'2000'}).calories||2000))),waterLitres:'0',waterTarget:'3',
     mealsReady:'0',mealPrepStreak:'0',moneySaved:'0',nextCampDate:'',notes:'',
   }));
 
