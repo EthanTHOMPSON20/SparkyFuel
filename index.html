@@ -993,7 +993,7 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
                               const name=match[3];
                               
                               // Convert fractions
-                              const fracs={'½':0.5,'¼':0.25,'¾':0.75,'⅓':0.333,'⅔':0.667};
+                              const fracs={'½':0.5,'¼':0.25,'¾':0.75};
                               let num=fracs[amount]||Number(amount.replace(/[^0-9.]/g,''));
                               if(isNaN(num)||num===0) return {raw:ing, divided:null};
                               
@@ -1019,16 +1019,16 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
                             const calsEach=Math.round(r.macros.calories/n*servesNeeded);
                             const protEach=Math.round(r.macros.protein/n*servesNeeded);
                             
-                            el.innerHTML=\`
-                              <div style="background:#1E1E22;border:1px solid #D4622A44;border-radius:10px;padding:14px;margin-top:4px">
-                                <div style="font-size:11px;font-weight:700;color:#D4622A;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Per container (1 of \${n})</div>
-                                <ul style="list-style:none;margin-bottom:12px">\${lines}</ul>
-                                <div style="background:#28282E;border-radius:8px;padding:10px 12px;display:flex;gap:16px;flex-wrap:wrap">
-                                  <span style="font-size:13px;font-weight:700;color:#5AC983">\${protEach}g protein</span>
-                                  <span style="font-size:13px;font-weight:700;color:#D4622A">\${calsEach} kcal</span>
-                                  <span style="font-size:11px;color:#8A8A92">based on your \${calsPerMeal} kcal meal target</span>
-                                </div>
-                              </div>\`;
+                            el.innerHTML=
+                              '<div style="background:#1E1E22;border:1px solid #D4622A44;border-radius:10px;padding:14px;margin-top:4px">'+
+                                '<div style="font-size:11px;font-weight:700;color:#D4622A;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Per container (1 of '+n+')</div>'+
+                                '<ul style="list-style:none;margin-bottom:12px">'+lines+'</ul>'+
+                                '<div style="background:#28282E;border-radius:8px;padding:10px 12px;display:flex;gap:16px;flex-wrap:wrap">'+
+                                  '<span style="font-size:13px;font-weight:700;color:#5AC983">'+protEach+'g protein</span>'+
+                                  '<span style="font-size:13px;font-weight:700;color:#D4622A">'+calsEach+' kcal</span>'+
+                                  '<span style="font-size:11px;color:#8A8A92">based on your '+calsPerMeal+' kcal meal target</span>'+
+                                '</div>'+
+                              '</div>';
                           }}
                         />
                         <span style={{fontSize:13,color:T.muted}}>containers</span>
