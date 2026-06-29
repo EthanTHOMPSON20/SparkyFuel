@@ -930,11 +930,37 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
               </div>
               <div>
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:T.muted,
-                  textTransform:'uppercase',marginBottom:10}}>🏋️ Good For</div>
+                  textTransform:'uppercase',marginBottom:10}}>Good For</div>
                 <div style={{display:'flex',gap:7,flexWrap:'wrap'}}>
                   {r.goodFor.map(g=><Tag key={g} color={T.green}>{g}</Tag>)}
                 </div>
               </div>
+
+              {/* Quick portion guide */}
+              {(()=>{
+                const goal=LS.get('portionGoal',{calories:'2000',meals:'5',protein:'180'});
+                const calsPerMeal=Math.round(Number(goal.calories||2000)/Number(goal.meals||5));
+                const protPerMeal=Math.round(Number(goal.protein||180)/Number(goal.meals||5));
+                const recipeCalRatio=calsPerMeal/r.macros.calories;
+                const servesNeeded=Math.round(recipeCalRatio*10)/10;
+                return (
+                  <div style={{background:T.orangeDim,border:`1px solid ${T.orange}44`,
+                    borderRadius:12,padding:'14px 16px'}}>
+                    <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:T.orange,
+                      textTransform:'uppercase',marginBottom:10}}>Your Portion Guide</div>
+                    <div style={{fontSize:13,color:T.cream,lineHeight:1.7}}>
+                      Your meal target: <strong style={{color:T.orange}}>{calsPerMeal} kcal</strong> and <strong style={{color:'#5AC983'}}>{protPerMeal}g protein</strong>
+                      <br/>
+                      For this recipe: eat <strong style={{color:T.orange}}>{servesNeeded}x serves</strong>
+                      <br/>
+                      That gives you <strong style={{color:'#5AC983'}}>{Math.round(r.macros.protein*servesNeeded)}g protein</strong> and <strong style={{color:T.orange}}>{Math.round(r.macros.calories*servesNeeded)} kcal</strong>
+                    </div>
+                    <div style={{marginTop:8,fontSize:11,color:T.muted}}>
+                      Set your daily calorie target in <strong style={{color:T.cream}}>Calorie Calc</strong> to update this.
+                    </div>
+                  </div>
+                );
+              })()}
               <div>
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:T.muted,
                   textTransform:'uppercase',marginBottom:10}}>📝 Personal Notes</div>
@@ -2020,6 +2046,300 @@ const CampModePage = ({form,setForm,plan,setPlan,onShopAdd}) => {
 };
 
 // --------------------------------------------------
+
+const PortionCalcPage = ({dashData}) => {
+  const [goal, setGoal] = useState(()=>LS.get('portionGoal',{
+    calories:'2000', protein:'180', meals:'5', deficitTarget:'500',
+    weight:'86', goalWeight:'80', bmr:'', tdee:'', activityLevel:'moderate',
+  }));
+  const [saved, setSaved] = useState(false);
+
+  const saveGoal = () => { LS.set('portionGoal', goal); setSaved(true); setTimeout(()=>setSaved(false),2000); };
+
+  // Activity multipliers
+  const activityMult = {sedentary:1.2, light:1.375, moderate:1.55, active:1.725, very:1.9};
+  const activityLabels = {sedentary:'Desk job, no exercise', light:'Light exercise 1-3x/week',
+    moderate:'Moderate exercise 3-5x/week (tradie + gym)', active:'Hard exercise 6-7x/week', very:'Physical job + hard training'};
+
+  // Auto-calculate BMR (Mifflin-St Jeor for males)
+  const w = Number(goal.weight||86);
+  const bmr = Math.round(10*w + 6.25*175 - 5*28 + 5); // height 175cm, age 28 estimate
+  const tdee = Math.round(bmr * (activityMult[goal.activityLevel]||1.55));
+  const deficitCals = tdee - Number(goal.deficitTarget||500);
+  const proteinCals = Number(goal.protein||180) * 4;
+  const fatCals = Math.round(deficitCals * 0.25);
+  const carbCals = deficitCals - proteinCals - fatCals;
+  const carbsG = Math.round(carbCals / 4);
+  const fatG = Math.round(fatCals / 9);
+  const calsPerMeal = Math.round(deficitCals / Number(goal.meals||5));
+  const proteinPerMeal = Math.round(Number(goal.protein||180) / Number(goal.meals||5));
+
+  // Per-100g calculator for batch recipes
+  const [batchRecipe, setBatchRecipe] = useState('');
+  const [batchWeight, setBatchWeight] = useState('');
+  const [batchServings, setBatchServings] = useState('');
+  const selectedRecipe = RECIPES.find(r=>r.id===batchRecipe);
+
+  // Calculate grams per scoop
+  let gramsPerServe = null;
+  let calsPerGram = null;
+  if(selectedRecipe && batchWeight && batchServings) {
+    const totalWeight = Number(batchWeight);
+    const totalServings = Number(batchServings);
+    gramsPerServe = Math.round(totalWeight / totalServings);
+    calsPerGram = selectedRecipe.macros.calories / (totalWeight / totalServings);
+    // How many grams to hit calorie target per meal
+  }
+
+  const gramsForTarget = (calsPerGram && calsPerMeal) ? Math.round(calsPerMeal / calsPerGram) : null;
+
+  return (
+    <div>
+      <div style={{background:`linear-gradient(135deg,${T.orangeDim},${T.surface})`,
+        border:`1px solid ${T.orange}44`,borderRadius:16,padding:'28px',marginBottom:24}}>
+        <div style={{fontSize:11,color:T.orange,fontWeight:700,letterSpacing:2,
+          textTransform:'uppercase',marginBottom:6}}>Nutrition Planning</div>
+        <div style={{fontSize:36,fontWeight:900,color:T.cream,letterSpacing:'-1px',marginBottom:6}}>
+          Calorie Calculator
+        </div>
+        <div style={{fontSize:14,color:T.muted}}>
+          Set your targets. Know exactly how much to scoop each morning.
+        </div>
+      </div>
+
+      {/* Stats input */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:16,marginBottom:24}}>
+        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:22}}>
+          <div style={{fontSize:13,fontWeight:700,color:T.cream,marginBottom:14}}>Your Stats</div>
+          {[
+            {k:'weight',l:'Current weight (kg)',ph:'86'},
+            {k:'goalWeight',l:'Goal weight (kg)',ph:'80'},
+          ].map(f=>(
+            <div key={f.k} style={{marginBottom:12}}>
+              <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
+                letterSpacing:1,marginBottom:5}}>{f.l}</div>
+              <input type="number" placeholder={f.ph} value={goal[f.k]}
+                onChange={e=>setGoal(p=>({...p,[f.k]:e.target.value}))}
+                style={{background:T.elevated,border:`1px solid ${T.border}`,borderRadius:8,
+                  color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',width:'100%',outline:'none'}}
+                onFocus={e=>e.target.style.borderColor=T.orange}
+                onBlur={e=>e.target.style.borderColor=T.border}
+              />
+            </div>
+          ))}
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
+              letterSpacing:1,marginBottom:5}}>Activity Level</div>
+            {Object.entries(activityLabels).map(([val,lbl])=>(
+              <button key={val} onClick={()=>setGoal(p=>({...p,activityLevel:val}))} style={{
+                width:'100%',background:goal.activityLevel===val?T.orangeDim:T.elevated,
+                border:`1px solid ${goal.activityLevel===val?T.orange:T.border}`,
+                color:goal.activityLevel===val?T.orange:T.muted,
+                borderRadius:8,padding:'8px 12px',cursor:'pointer',fontFamily:'inherit',
+                fontSize:12,textAlign:'left',marginBottom:6,transition:'all 0.15s',
+              }}>{lbl}</button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:22}}>
+          <div style={{fontSize:13,fontWeight:700,color:T.cream,marginBottom:14}}>Your Targets</div>
+          {[
+            {k:'deficitTarget',l:'Daily calorie deficit (e.g. 500)',ph:'500'},
+            {k:'protein',l:'Daily protein target (g)',ph:'180'},
+            {k:'meals',l:'Meals per day',ph:'5'},
+          ].map(f=>(
+            <div key={f.k} style={{marginBottom:12}}>
+              <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
+                letterSpacing:1,marginBottom:5}}>{f.l}</div>
+              <input type="number" placeholder={f.ph} value={goal[f.k]}
+                onChange={e=>setGoal(p=>({...p,[f.k]:e.target.value}))}
+                style={{background:T.elevated,border:`1px solid ${T.border}`,borderRadius:8,
+                  color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',width:'100%',outline:'none'}}
+                onFocus={e=>e.target.style.borderColor=T.orange}
+                onBlur={e=>e.target.style.borderColor=T.border}
+              />
+            </div>
+          ))}
+          <button onClick={saveGoal} style={{
+            width:'100%',background:saved?T.green:T.orange,border:'none',color:'#fff',
+            borderRadius:8,padding:'11px',cursor:'pointer',fontSize:14,fontWeight:700,
+            fontFamily:'inherit',marginTop:4,transition:'background 0.2s',
+          }}>{saved?'✅ Saved!':'Save Targets'}</button>
+        </div>
+      </div>
+
+      {/* Calculated results */}
+      <div style={{background:T.surface,border:`1px solid ${T.orange}44`,borderRadius:16,padding:22,marginBottom:24}}>
+        <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:T.orange,
+          textTransform:'uppercase',marginBottom:16}}>Your Daily Numbers</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:12,marginBottom:16}}>
+          {[
+            {icon:'🔥',label:'BMR',value:`${bmr} kcal`,sub:'Calories at rest',color:T.muted},
+            {icon:'⚡',label:'TDEE',value:`${tdee} kcal`,sub:'Total daily burn',color:'#60B8D4'},
+            {icon:'🎯',label:'Eat This Much',value:`${deficitCals} kcal`,sub:`${goal.deficitTarget} cal deficit`,color:T.orange},
+            {icon:'💪',label:'Protein',value:`${goal.protein}g`,sub:`${proteinPerMeal}g per meal`,color:'#5AC983'},
+            {icon:'🌾',label:'Carbs',value:`${carbsG}g`,sub:'Per day',color:'#B88AE0'},
+            {icon:'🥑',label:'Fat',value:`${fatG}g`,sub:'Per day',color:'#E0B84A'},
+          ].map((s,i)=>(
+            <div key={i} style={{background:T.elevated,border:`1px solid ${T.border}`,
+              borderRadius:10,padding:'12px 14px',textAlign:'center'}}>
+              <div style={{fontSize:20,marginBottom:4}}>{s.icon}</div>
+              <div style={{fontSize:18,fontWeight:900,color:s.color,fontFamily:'monospace'}}>{s.value}</div>
+              <div style={{fontSize:10,fontWeight:700,color:T.cream,textTransform:'uppercase',marginBottom:2}}>{s.label}</div>
+              <div style={{fontSize:10,color:T.muted}}>{s.sub}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Per meal targets */}
+        <div style={{background:T.orangeDim,border:`1px solid ${T.orange}33`,borderRadius:12,padding:'14px 16px'}}>
+          <div style={{fontSize:13,fontWeight:800,color:T.orange,marginBottom:8}}>
+            Per Meal Target ({goal.meals||5} meals/day)
+          </div>
+          <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
+            <span style={{fontSize:14,color:T.cream,fontWeight:700}}>{calsPerMeal} kcal</span>
+            <span style={{fontSize:14,color:'#5AC983',fontWeight:700}}>{proteinPerMeal}g protein</span>
+            <span style={{fontSize:14,color:'#B88AE0',fontWeight:700}}>{Math.round(carbsG/Number(goal.meals||5))}g carbs</span>
+            <span style={{fontSize:14,color:'#E0B84A',fontWeight:700}}>{Math.round(fatG/Number(goal.meals||5))}g fat</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Batch portion calculator */}
+      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:22,marginBottom:24}}>
+        <div style={{fontSize:13,fontWeight:700,color:T.cream,marginBottom:4}}>
+          Batch Portion Calculator
+        </div>
+        <div style={{fontSize:13,color:T.muted,marginBottom:16}}>
+          Cooked a big batch? Tell me the total weight and how many serves you made. 
+          I will tell you exactly how many grams to scoop each morning.
+        </div>
+
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
+              letterSpacing:1,marginBottom:5}}>Select Recipe</div>
+            <select value={batchRecipe} onChange={e=>setBatchRecipe(e.target.value)} style={{
+              background:T.elevated,border:`1px solid ${T.border}`,borderRadius:8,
+              color:T.cream,fontSize:13,padding:'9px 12px',fontFamily:'inherit',
+              width:'100%',outline:'none',
+            }}>
+              <option value="">-- Pick a recipe --</option>
+              {['breakfast','lunch','smoko','fakeaway','desserts'].map(ch=>(
+                <optgroup key={ch} label={ch.toUpperCase()}>
+                  {RECIPES.filter(r=>r.chapter===ch).map(r=>(
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
+              letterSpacing:1,marginBottom:5}}>Total batch weight (g)</div>
+            <input type="number" placeholder="e.g. 2500" value={batchWeight}
+              onChange={e=>setBatchWeight(e.target.value)}
+              style={{background:T.elevated,border:`1px solid ${T.border}`,borderRadius:8,
+                color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',width:'100%',outline:'none'}}
+              onFocus={e=>e.target.style.borderColor=T.orange}
+              onBlur={e=>e.target.style.borderColor=T.border}
+            />
+          </div>
+        </div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
+            letterSpacing:1,marginBottom:5}}>Number of serves you made</div>
+          <input type="number" placeholder="e.g. 5" value={batchServings}
+            onChange={e=>setBatchServings(e.target.value)}
+            style={{background:T.elevated,border:`1px solid ${T.border}`,borderRadius:8,
+              color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',width:'200px',outline:'none'}}
+            onFocus={e=>e.target.style.borderColor=T.orange}
+            onBlur={e=>e.target.style.borderColor=T.border}
+          />
+        </div>
+
+        {selectedRecipe && batchWeight && batchServings && (
+          <div style={{background:T.orangeDim,border:`1px solid ${T.orange}55`,borderRadius:12,padding:'18px 20px'}}>
+            <div style={{fontSize:16,fontWeight:900,color:T.orange,marginBottom:12}}>
+              {selectedRecipe.emoji} {selectedRecipe.name} — Portion Guide
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+              <div style={{background:T.surface,borderRadius:10,padding:'12px 14px',textAlign:'center'}}>
+                <div style={{fontSize:32,fontWeight:900,color:T.orange,fontFamily:'monospace'}}>
+                  {gramsPerServe}g
+                </div>
+                <div style={{fontSize:12,color:T.cream,fontWeight:700}}>Standard serve</div>
+                <div style={{fontSize:11,color:T.muted}}>({batchServings} serves total)</div>
+              </div>
+              <div style={{background:T.surface,borderRadius:10,padding:'12px 14px',textAlign:'center'}}>
+                <div style={{fontSize:32,fontWeight:900,color:'#5AC983',fontFamily:'monospace'}}>
+                  {gramsForTarget}g
+                </div>
+                <div style={{fontSize:12,color:T.cream,fontWeight:700}}>To hit {calsPerMeal} kcal</div>
+                <div style={{fontSize:11,color:T.muted}}>Your meal target</div>
+              </div>
+            </div>
+            <div style={{display:'flex',flexDirection:'column',gap:6}}>
+              {[
+                {label:'Per standard serve',protein:selectedRecipe.macros.protein,cals:selectedRecipe.macros.calories},
+                {label:`Per ${gramsForTarget}g (your target)`,
+                  protein:Math.round(selectedRecipe.macros.protein*(gramsForTarget/gramsPerServe)),
+                  cals:calsPerMeal},
+              ].map((row,i)=>(
+                <div key={i} style={{display:'flex',justifyContent:'space-between',
+                  background:T.surface,borderRadius:8,padding:'10px 14px',alignItems:'center'}}>
+                  <span style={{fontSize:12,color:T.muted}}>{row.label}</span>
+                  <div style={{display:'flex',gap:12}}>
+                    <span style={{fontSize:13,fontWeight:700,color:'#5AC983'}}>{row.protein}g protein</span>
+                    <span style={{fontSize:13,fontWeight:700,color:T.orange}}>{row.cals} kcal</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop:14,padding:'12px 14px',background:T.surface,borderRadius:10,
+              border:`1px solid ${T.border}`,fontSize:13,color:T.cream,lineHeight:1.6}}>
+              <strong style={{color:T.orange}}>Morning routine:</strong> Weigh out {gramsForTarget}g into your container. 
+              That gives you {calsPerMeal} kcal and {Math.round(selectedRecipe.macros.protein*(gramsForTarget/gramsPerServe))}g protein — 
+              right on target for your {deficitCals} kcal day.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Today vs target comparison */}
+      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:22}}>
+        <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:T.orange,
+          textTransform:'uppercase',marginBottom:14}}>Today vs Target</div>
+        {[
+          {label:'Calories',cur:Number(dashData?.caloriesToday||0),target:deficitCals,unit:'kcal',color:T.orange},
+          {label:'Protein',cur:Number(dashData?.proteinToday||0),target:Number(goal.protein||180),unit:'g',color:'#5AC983'},
+        ].map(g=>{
+          const pct=Math.min(100,g.target>0?(g.cur/g.target)*100:0);
+          const over=g.cur>g.target;
+          return (
+            <div key={g.label} style={{marginBottom:16}}>
+              <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                <span style={{fontSize:13,fontWeight:700,color:T.cream}}>{g.label}</span>
+                <span style={{fontSize:12,color:over?T.red:T.muted,fontFamily:'monospace',fontWeight:700}}>
+                  {g.cur} / {g.target}{g.unit} {over?'⚠️ OVER':''}
+                </span>
+              </div>
+              <div style={{height:10,background:T.border,borderRadius:5,overflow:'hidden',marginBottom:4}}>
+                <div style={{height:'100%',width:`${pct}%`,
+                  background:over?T.red:g.color,borderRadius:5,transition:'width 0.8s ease'}} />
+              </div>
+              <div style={{fontSize:11,color:T.muted}}>
+                {g.target-g.cur>0?`${g.target-g.cur}${g.unit} remaining`:`${g.cur-g.target}${g.unit} over target`}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 const SettingsPage = () => (
   <div>
     <div style={{fontSize:28,fontWeight:900,color:T.cream,marginBottom:6}}>Settings</div>
@@ -2052,6 +2372,7 @@ const NAV = [
   ...CHAPTERS.map(c=>({id:c.id,label:c.label,icon:c.icon,chapter:true})),
   {id:'shopping',label:'Shopping',icon:'🛒'},
   {id:'lockin',label:'Lock In',icon:'🎯'},
+  {id:'calories',label:'Calorie Calc',icon:'🔢'},
   {id:'camping-mode',label:'Camp Mode',icon:'🏕️'},
   {id:'progress',label:'Progress',icon:'📊'},
   {id:'settings',label:'Settings',icon:'⚙️'},
@@ -2304,6 +2625,7 @@ function App() {
     if(page==='lockin')return <LockInPage />;
     if(page==='camping-mode')return <CampModePage form={campForm} setForm={setCampForm} plan={campPlan} setPlan={setCampPlan} onShopAdd={addToShop} />;
     if(page==='progress')return <ProgressPage entries={progressEntries} setEntries={setProgressEntries} />;
+    if(page==='calories')return <PortionCalcPage dashData={dashData} />;
     if(page==='settings')return <SettingsPage />;
     return <Dashboard onNav={navTo} favs={favs} />;
   };
