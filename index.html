@@ -539,6 +539,95 @@ const RECIPES = [
    method:['Add all ingredients to a drink bottle.','Shake until dissolved.','Drink throughout the day.'],
    tips:'Drink before you feel thirsty. By then you\'re already dehydrated.',
    photo:'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=800&q=80'},
+  // SNACKS
+  {id:'snk-001',chapter:'snacks',name:'Tortilla Chips & Hummus',emoji:'🫓',
+   desc:'The classic. Crunchy, satisfying, actually decent macros. Measure it out or you will eat the whole bag.',
+   tags:['snacks','cutting','quick','vegetarian'],
+   macros:{protein:7,calories:220,carbs:26,fat:10},cost:2.50,serves:1,prep:2,cook:0,
+   fridge:'Shelf stable',freeze:false,diff:'Easy',mealPrep:4,camping:4,budget:4,rating:5,cooked:999,
+   goodFor:['Snack','Cutting','Camping','Quick Win'],
+   ingredients:['30g corn tortilla chips (about 15-18 chips)','60g hummus (2 heaped tbsp)'],
+   method:['Weigh out 30g of chips on a kitchen scale.','Spoon 60g of hummus into a small bowl.','Dip. Enjoy. Put the bag away.'],
+   tips:'The bag lie to you - a serve is 30g. Weigh it once, know what it looks like, then eyeball it after. Aldi hummus is $2.99 and tastes the same as the expensive stuff.',
+   photo:'https://images.unsplash.com/photo-1541014741259-de529411b96a?w=800&q=80'},
+
+  {id:'snk-002',chapter:'snacks',name:'Greek Yoghurt & Berries',emoji:'🫐',
+   desc:'High protein, low cal, actually fills you up. 20g protein for 180 kcal. The best snack in the book.',
+   tags:['snacks','cutting','high-protein','quick'],
+   macros:{protein:20,calories:180,carbs:18,fat:3},cost:1.50,serves:1,prep:2,cook:0,
+   fridge:'3 days',freeze:false,diff:'Easy',mealPrep:5,camping:2,budget:5,rating:5,cooked:999,
+   goodFor:['Snack','Cutting','High Protein','Quick Win'],
+   ingredients:['170g Greek yoghurt (Aldi)','80g mixed berries (fresh or frozen)','1 tsp honey (optional)'],
+   method:['Spoon yoghurt into a bowl.','Top with berries.','Drizzle honey if you want it.','Done in 60 seconds.'],
+   tips:'Prep 4 portions in containers Sunday night. Grab one any time. Skip the honey on a cut.',
+   photo:'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=800&q=80'},
+
+  {id:'snk-003',chapter:'snacks',name:'Apple & Peanut Butter',emoji:'🍎',
+   desc:'Natural sugar + healthy fat + protein. Keeps you full for hours. Dead simple.',
+   tags:['snacks','cutting','quick','natural'],
+   macros:{protein:8,calories:240,carbs:30,fat:11},cost:1.20,serves:1,prep:2,cook:0,
+   fridge:'Shelf stable',freeze:false,diff:'Easy',mealPrep:5,camping:5,budget:5,rating:4,cooked:999,
+   goodFor:['Snack','Camping','Quick Win'],
+   ingredients:['1 medium apple (sliced)','2 tbsp peanut butter (32g)'],
+   method:['Slice the apple.','Measure 2 tbsp peanut butter.','Dip and eat.'],
+   tips:'2 tbsp is the serve. It is easy to go to 4 tbsp. Measure it. Peanut butter is 600 cal per 100g.',
+   photo:'https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=800&q=80'},
+
+  {id:'snk-004',chapter:'snacks',name:'Rice Cakes & Cottage Cheese',emoji:'🍚',
+   desc:'Ultra low calorie, surprisingly filling. 15g protein for only 160 kcal. The cutting snack.',
+   tags:['snacks','cutting','high-protein','low-cal'],
+   macros:{protein:15,calories:160,carbs:18,fat:2},cost:1.80,serves:1,prep:3,cook:0,
+   fridge:'2 days',freeze:false,diff:'Easy',mealPrep:5,camping:2,budget:5,rating:4,cooked:999,
+   goodFor:['Snack','Cutting','High Protein'],
+   ingredients:['4 plain rice cakes','120g low fat cottage cheese','Salt, pepper','Optional: sliced cucumber, tomato, everything bagel seasoning'],
+   method:['Spoon cottage cheese onto rice cakes.','Season with salt and pepper.','Add toppings if using.'],
+   tips:'Sounds boring, tastes better than you think. Everything bagel seasoning from Aldi makes it 10x better.',
+   photo:'https://images.unsplash.com/photo-1559181567-c3190ca9d7da?w=800&q=80'},
+
+  {id:'snk-005',chapter:'snacks',name:'Boiled Egg & Veggies',emoji:'🥚',
+   desc:'2 boiled eggs + raw veg. 13g protein, 120 kcal. The leanest snack possible.',
+   tags:['snacks','cutting','high-protein','no-cook'],
+   macros:{protein:13,calories:120,carbs:4,fat:8},cost:0.80,serves:1,prep:2,cook:0,
+   fridge:'3 days',freeze:false,diff:'Easy',mealPrep:5,camping:4,budget:5,rating:4,cooked:999,
+   goodFor:['Snack','Cutting','High Protein','Camping'],
+   ingredients:['2 boiled eggs (from Sunday batch)','Handful carrot sticks or cucumber slices','Salt, pepper, hot sauce'],
+   method:['Grab 2 eggs from your Sunday batch.','Slice some carrot or cucumber.','Season eggs with salt, pepper, hot sauce.'],
+   tips:'If you batch boiled eggs Sunday you literally just grab 2 from the fridge. Zero effort.',
+   photo:'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=800&q=80'},
+
+  {id:'snk-006',chapter:'snacks',name:'Protein Bar (Homemade)',emoji:'💪',
+   desc:'Make your own protein bars. Cheaper than Quest, better macros. Batch make 8 on Sunday.',
+   tags:['snacks','bulking','high-protein','meal-prep'],
+   macros:{protein:18,calories:280,carbs:28,fat:10},cost:1.00,serves:1,prep:15,cook:0,
+   fridge:'1 week',freeze:true,diff:'Easy',mealPrep:5,camping:4,budget:5,rating:4,cooked:20,
+   goodFor:['Snack','Bulking','Meal Prep','Camping'],
+   ingredients:['2 cups rolled oats','2 scoops protein powder','3 tbsp honey','3 tbsp peanut butter','2 tbsp cocoa powder (optional)','3-4 tbsp milk (to bind)','Dark choc chips (optional)'],
+   method:['Mix oats, protein powder, cocoa in a bowl.','Add honey and peanut butter. Mix well.','Add milk 1 tbsp at a time until mixture holds together when squeezed.','Press firmly into a lined baking dish.','Refrigerate 1 hour. Cut into 8 bars.','Wrap individually and store in fridge or freezer.'],
+   tips:'These are $1 each vs $5 for Quest bars and have similar macros. Freeze half the batch so they last longer.',
+   photo:'https://images.unsplash.com/photo-1490474504059-bf2db5ab2348?w=800&q=80'},
+
+  {id:'snk-007',chapter:'snacks',name:'Nuts & Dark Chocolate',emoji:'🍫',
+   desc:'A handful of mixed nuts and 2 squares of dark chocolate. Satisfying, real food, good fats.',
+   tags:['snacks','cutting','healthy-fat','quick'],
+   macros:{protein:6,calories:210,carbs:12,fat:16},cost:1.50,serves:1,prep:1,cook:0,
+   fridge:'Shelf stable',freeze:false,diff:'Easy',mealPrep:5,camping:5,budget:4,rating:5,cooked:999,
+   goodFor:['Snack','Camping','Quick Win'],
+   ingredients:['20g mixed nuts (almonds, cashews, macadamias)','2 squares 70%+ dark chocolate (about 20g)'],
+   method:['Weigh 20g nuts.','Break off 2 squares of dark chocolate.','Eat slowly. Savour it.'],
+   tips:'20g of nuts is about a small handful. Weigh it once so you know what it looks like. Easy to overdo.',
+   photo:'https://images.unsplash.com/photo-1490474504059-bf2db5ab2348?w=800&q=80'},
+
+  {id:'snk-008',chapter:'snacks',name:'Tuna & Crackers',emoji:'🐟',
+   desc:'Canned tuna on Ryvita crackers. 25g protein. $1.50. Sounds boring, works perfectly.',
+   tags:['snacks','cutting','high-protein','budget'],
+   macros:{protein:25,calories:200,carbs:14,fat:3},cost:1.50,serves:1,prep:2,cook:0,
+   fridge:'Shelf stable',freeze:false,diff:'Easy',mealPrep:5,camping:5,budget:5,rating:4,cooked:999,
+   goodFor:['Snack','Cutting','High Protein','Budget','Camping'],
+   ingredients:['1 x 95g can tuna in springwater (drained)','4-6 Ryvita or rice crackers','Squeeze of lemon or hot sauce'],
+   method:['Drain tuna.','Spoon onto crackers.','Add lemon or hot sauce.','Done.'],
+   tips:'Keep a few cans in your work bag or toolbox. Always have a high protein option on site.',
+   photo:'https://images.unsplash.com/photo-1511994714008-b6d68a8b32a2?w=800&q=80'},
+
 ];
 
 const CHAPTERS = [
@@ -550,6 +639,7 @@ const CHAPTERS = [
   {id:'fakeaway',label:'Fakeaway',icon:'🍔',color:'#3A5EA6'},
   {id:'desserts',label:'Desserts',icon:'🍰',color:'#8B3A7D'},
   {id:'drinks',label:'Drinks',icon:'🍹',color:'#2A7D8B'},
+  {id:'snacks',label:'Snacks',icon:'🥨',color:'#8B6914'},
 ];
 
 // --------------------------------------------------
@@ -834,6 +924,89 @@ const PortionGuide = ({recipe:r}) => {
   );
 };
 
+
+const SnackPortionGuide = ({recipe:r, dashData}) => {
+  const goal = LS.get('portionGoal', {calories:'2000', meals:'5'});
+  const dailyCals = Number(goal.calories||2000);
+  const eatenCals = Number(dashData && dashData.caloriesToday || 0);
+  const remainingCals = Math.max(0, dailyCals - eatenCals);
+  const servesYouCanHave = Math.round((remainingCals / r.macros.calories) * 10) / 10;
+  const pctOfRemaining = Math.min(100, Math.round((r.macros.calories / remainingCals) * 100));
+
+  // Specific quantity guidance for common snacks
+  const getQuantityTip = () => {
+    const name = r.name.toLowerCase();
+    const calsPerUnit = {
+      'tortilla': {unit:'chips', calsEach:7, gEach:2},
+      'nut': {unit:'nuts', calsEach:7, gEach:1.3},
+    };
+    if (name.includes('tortilla')) {
+      const chips = Math.round(remainingCals * 0.3 / 7);
+      const grams = Math.round(chips * 2);
+      return chips + ' chips (' + grams + 'g) uses 30% of remaining cals';
+    }
+    if (name.includes('peanut butter')) {
+      const tbsp = Math.round(remainingCals * 0.25 / 95);
+      return tbsp + ' tbsp peanut butter uses 25% of remaining cals';
+    }
+    return null;
+  };
+
+  const tip = getQuantityTip();
+
+  return (
+    <div style={{background:'rgba(139,105,20,0.15)',border:'1px solid rgba(139,105,20,0.4)',
+      borderRadius:12,padding:'14px 16px',marginTop:12}}>
+      <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:'#E0B84A',
+        textTransform:'uppercase',marginBottom:10}}>How Much Can I Have?</div>
+
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:12}}>
+        <div style={{background:T.surface,borderRadius:9,padding:'10px 12px',textAlign:'center'}}>
+          <div style={{fontSize:11,color:T.muted,marginBottom:4}}>Calories remaining today</div>
+          <div style={{fontSize:22,fontWeight:900,color:'#E0B84A',fontFamily:'monospace'}}>
+            {remainingCals}
+          </div>
+          <div style={{fontSize:10,color:T.muted}}>kcal left</div>
+        </div>
+        <div style={{background:T.surface,borderRadius:9,padding:'10px 12px',textAlign:'center'}}>
+          <div style={{fontSize:11,color:T.muted,marginBottom:4}}>Serves you can have</div>
+          <div style={{fontSize:22,fontWeight:900,color:servesYouCanHave>=1?'#5AC983':T.orange,fontFamily:'monospace'}}>
+            {servesYouCanHave}x
+          </div>
+          <div style={{fontSize:10,color:T.muted}}>of this snack</div>
+        </div>
+      </div>
+
+      <div style={{background:T.surface,borderRadius:9,padding:'10px 14px',marginBottom:tip?10:0}}>
+        <div style={{fontSize:13,color:T.cream,lineHeight:1.6}}>
+          1 serve = <strong style={{color:'#E0B84A'}}>{r.macros.calories} kcal</strong> and <strong style={{color:'#5AC983'}}>{r.macros.protein}g protein</strong>
+          <br/>
+          That uses <strong style={{color:pctOfRemaining>50?T.red:'#E0B84A'}}>{pctOfRemaining}%</strong> of your remaining calories
+        </div>
+      </div>
+
+      {tip && (
+        <div style={{background:T.orangeDim,borderRadius:9,padding:'9px 12px',
+          fontSize:12,color:T.cream,border:'1px solid rgba(212,98,42,0.3)'}}>
+          Tip: {tip}
+        </div>
+      )}
+
+      {remainingCals < r.macros.calories && (
+        <div style={{marginTop:10,padding:'9px 12px',background:'rgba(155,55,55,0.15)',
+          borderRadius:9,border:'1px solid rgba(155,55,55,0.3)',fontSize:12,color:'#F08080'}}>
+          You only have {remainingCals} kcal left — a full serve puts you over.
+          Have {Math.max(0,Math.round(remainingCals/r.macros.calories*10)/10)}x serves max.
+        </div>
+      )}
+
+      <div style={{marginTop:10,fontSize:11,color:T.dim}}>
+        Updates as you log meals throughout the day.
+      </div>
+    </div>
+  );
+};
+
 // Serves selector component - proper hook usage
 const LogMealButton = ({recipe, onLogMeal, onClose}) => {
   // Default to the serves needed to hit calorie target
@@ -1029,7 +1202,9 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
                 </div>
               </div>
 
-              <PortionGuide recipe={r} />
+              {r.chapter==='snacks'
+                ? <SnackPortionGuide recipe={r} dashData={window.__dashData} />
+                : <PortionGuide recipe={r} />}
               <div>
                 <div style={{fontSize:10,fontWeight:700,letterSpacing:2,color:T.muted,
                   textTransform:'uppercase',marginBottom:10}}>📝 Personal Notes</div>
@@ -1095,6 +1270,8 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
 const Dashboard = ({onNav,favs,dashData:d,setDashData:setD,loggedMeals,removeLoggedMeal}) => {
   const hour = new Date().getHours();
   const greeting = hour<12?'Good Morning':hour<17?'Good Afternoon':'Good Evening';
+  // Make dashData globally accessible for snack portion calculator
+  if (typeof window !== 'undefined') window.__dashData = d;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({...d});
   const [saved, setSaved] = useState(false);
