@@ -2703,7 +2703,7 @@ const PortionCalcPage = ({dashData}) => {
 
 
 // ─── GYM DATA ────────────────────────────────────────────────────────────────
-const WEEKLY_SPLIT = [
+const DEFAULT_WEEKLY_SPLIT = [
   {day:'Monday', focus:'Chest + Triceps + Forearms', icon:'💪', color:'#D4622A'},
   {day:'Tuesday', focus:'Back + Biceps + Forearms', icon:'🏋️', color:'#2E7D52'},
   {day:'Wednesday', focus:'Shoulders + Traps', icon:'🔝', color:'#2A5AA6'},
@@ -2713,7 +2713,7 @@ const WEEKLY_SPLIT = [
   {day:'Sunday', focus:'Rest', icon:'😴', color:'#4A4A52'},
 ];
 
-const WORKOUTS = {
+const DEFAULT_WORKOUTS = {
   Monday: [
     {id:'bench',name:'Bench Press',muscle:'Chest',sets:4,reps:'6-8',notes:'Control the eccentric'},
     {id:'incline-db',name:'Incline Dumbbell Press',muscle:'Upper Chest',sets:3,reps:'8-12',notes:''},
@@ -3001,12 +3001,21 @@ const GymPage = () => {
   const days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const todayName = days[new Date().getDay()===0?6:new Date().getDay()-1];
   const [activeDay, setActiveDay] = useState(todayName);
-  const [view, setView] = useState('workout'); // workout | split | history
+  const [view, setView] = useState('workout'); // workout | split | history | edit
   const [sessionData, setSessionData] = useState(()=>LS.get('gymSession-'+activeDay,{}));
   const [showTimer, setShowTimer] = useState(false);
   const [workoutStart] = useState(Date.now());
   const [elapsed, setElapsed] = useState(0);
   const [historyEx, setHistoryEx] = useState(null);
+
+  // Editable workout plan - loads custom plan if saved, otherwise defaults
+  const [weeklySplit, setWeeklySplit] = useState(()=>LS.get('customSplit', DEFAULT_WEEKLY_SPLIT));
+  const [workouts, setWorkouts] = useState(()=>LS.get('customWorkouts', DEFAULT_WORKOUTS));
+  const [editDay, setEditDay] = useState(null);
+  const [newExName, setNewExName] = useState('');
+  const [newExMuscle, setNewExMuscle] = useState('');
+  const [newExSets, setNewExSets] = useState('3');
+  const [newExReps, setNewExReps] = useState('10-12');
 
   useEffect(()=>{
     setSessionData(LS.get('gymSession-'+activeDay,{}));
@@ -3025,9 +3034,173 @@ const GymPage = () => {
     });
   };
 
-  const exercises = WORKOUTS[activeDay]||[];
+  const saveWorkouts = (next) => {
+    setWorkouts(next);
+    LS.set('customWorkouts', next);
+  };
+
+  const saveSplit = (next) => {
+    setWeeklySplit(next);
+    LS.set('customSplit', next);
+  };
+
+  const updateFocus = (day, newFocus) => {
+    saveSplit(weeklySplit.map(s=>s.day===day?{...s,focus:newFocus}:s));
+  };
+
+  const addExercise = (day) => {
+    if(!newExName.trim()) return;
+    const id = newExName.toLowerCase().replace(/[^a-z0-9]+/g,'-')+'-'+Date.now();
+    const newEx = {id, name:newExName.trim(), muscle:newExMuscle.trim()||'General',
+      sets:Number(newExSets)||3, reps:newExReps||'10-12', notes:''};
+    saveWorkouts({...workouts, [day]:[...(workouts[day]||[]), newEx]});
+    setNewExName(''); setNewExMuscle(''); setNewExSets('3'); setNewExReps('10-12');
+  };
+
+  const removeExercise = (day, exId) => {
+    saveWorkouts({...workouts, [day]:(workouts[day]||[]).filter(e=>e.id!==exId)});
+  };
+
+  const moveExercise = (day, idx, dir) => {
+    const list=[...(workouts[day]||[])];
+    const newIdx=idx+dir;
+    if(newIdx<0||newIdx>=list.length) return;
+    [list[idx],list[newIdx]]=[list[newIdx],list[idx]];
+    saveWorkouts({...workouts, [day]:list});
+  };
+
+  const resetToDefaults = () => {
+    saveSplit(DEFAULT_WEEKLY_SPLIT);
+    saveWorkouts(DEFAULT_WORKOUTS);
+  };
+
+  const exercises = workouts[activeDay]||[];
   const completed = exercises.filter(ex=>sessionData[activeDay+'-'+ex.id]?.done).length;
-  const split = WEEKLY_SPLIT.find(s=>s.day===activeDay)||WEEKLY_SPLIT[0];
+  const split = weeklySplit.find(s=>s.day===activeDay)||weeklySplit[0];
+
+  // Edit mode view
+  if(view==='edit'){
+    const day = editDay || activeDay;
+    const dayExercises = workouts[day]||[];
+    const daySplit = weeklySplit.find(s=>s.day===day);
+    return (
+      <div>
+        <button onClick={()=>setView('workout')} style={{
+          background:'none',border:'none',color:T.orange,cursor:'pointer',
+          fontSize:14,fontWeight:700,fontFamily:'inherit',marginBottom:16,padding:0,
+        }}>← Back to Workout</button>
+
+        <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:16,
+          padding:'20px 22px',marginBottom:20}}>
+          <div style={{fontSize:11,color:T.orange,fontWeight:700,letterSpacing:2,
+            textTransform:'uppercase',marginBottom:12}}>Edit Workout Plan</div>
+
+          {/* Day picker for editing */}
+          <div style={{display:'flex',gap:4,marginBottom:16,overflowX:'auto',paddingBottom:4}}>
+            {days.map(d=>(
+              <button key={d} onClick={()=>setEditDay(d)} style={{
+                flexShrink:0,background:day===d?T.orange:T.elevated,
+                border:'1px solid '+(day===d?T.orange:T.border),
+                color:day===d?'#fff':T.muted,borderRadius:8,padding:'7px 12px',
+                cursor:'pointer',fontSize:12,fontWeight:700,fontFamily:'inherit',
+              }}>{d.slice(0,3)}</button>
+            ))}
+          </div>
+
+          {/* Focus name editor */}
+          <div style={{marginBottom:16}}>
+            <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
+              letterSpacing:1,marginBottom:6}}>Day Focus / Split Name</div>
+            <input type="text" value={daySplit?.focus||''}
+              onChange={e=>updateFocus(day,e.target.value)}
+              placeholder="e.g. Chest + Triceps"
+              style={{width:'100%',background:T.elevated,border:'1px solid '+T.border,
+                borderRadius:8,color:T.cream,fontSize:14,padding:'10px 12px',
+                fontFamily:'inherit',outline:'none'}}
+              onFocus={e=>e.target.style.borderColor=T.orange}
+              onBlur={e=>e.target.style.borderColor=T.border}
+            />
+          </div>
+
+          {/* Existing exercises - editable list */}
+          <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:'uppercase',
+            letterSpacing:1,marginBottom:10}}>Exercises ({dayExercises.length})</div>
+          {dayExercises.length===0?(
+            <div style={{textAlign:'center',padding:'20px',color:T.muted,fontSize:13}}>
+              No exercises yet. Add one below.
+            </div>
+          ):(
+            dayExercises.map((ex,i)=>(
+              <div key={ex.id} style={{display:'flex',alignItems:'center',gap:8,
+                background:T.elevated,borderRadius:10,padding:'10px 12px',marginBottom:8}}>
+                <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                  <button onClick={()=>moveExercise(day,i,-1)} disabled={i===0} style={{
+                    background:'none',border:'none',color:i===0?T.dim:T.muted,
+                    cursor:i===0?'default':'pointer',fontSize:12,padding:0,lineHeight:1,
+                  }}>▲</button>
+                  <button onClick={()=>moveExercise(day,i,1)} disabled={i===dayExercises.length-1} style={{
+                    background:'none',border:'none',color:i===dayExercises.length-1?T.dim:T.muted,
+                    cursor:i===dayExercises.length-1?'default':'pointer',fontSize:12,padding:0,lineHeight:1,
+                  }}>▼</button>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,fontWeight:700,color:T.cream}}>{ex.name}</div>
+                  <div style={{fontSize:11,color:T.muted}}>{ex.muscle} · {ex.sets} sets · {ex.reps} reps</div>
+                </div>
+                <button onClick={()=>removeExercise(day,ex.id)} style={{
+                  background:'rgba(155,55,55,0.2)',border:'1px solid rgba(155,55,55,0.3)',
+                  color:'#F08080',borderRadius:7,width:30,height:30,cursor:'pointer',
+                  fontSize:14,flexShrink:0,
+                }}>✕</button>
+              </div>
+            ))
+          )}
+
+          {/* Add new exercise form */}
+          <div style={{marginTop:16,paddingTop:16,borderTop:'1px solid '+T.border}}>
+            <div style={{fontSize:11,fontWeight:700,color:T.orange,textTransform:'uppercase',
+              letterSpacing:1,marginBottom:10}}>+ Add Exercise</div>
+            <input type="text" placeholder="Exercise name (e.g. Bench Press)" value={newExName}
+              onChange={e=>setNewExName(e.target.value)}
+              style={{width:'100%',background:T.elevated,border:'1px solid '+T.border,
+                borderRadius:8,color:T.cream,fontSize:14,padding:'9px 12px',
+                fontFamily:'inherit',outline:'none',marginBottom:8}}
+              onFocus={e=>e.target.style.borderColor=T.orange}
+              onBlur={e=>e.target.style.borderColor=T.border}
+            />
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:10}}>
+              <input type="text" placeholder="Muscle group" value={newExMuscle}
+                onChange={e=>setNewExMuscle(e.target.value)}
+                style={{background:T.elevated,border:'1px solid '+T.border,borderRadius:8,
+                  color:T.cream,fontSize:13,padding:'9px 10px',fontFamily:'inherit',outline:'none'}}
+              />
+              <input type="number" placeholder="Sets" value={newExSets}
+                onChange={e=>setNewExSets(e.target.value)}
+                style={{background:T.elevated,border:'1px solid '+T.border,borderRadius:8,
+                  color:T.cream,fontSize:13,padding:'9px 10px',fontFamily:'inherit',outline:'none'}}
+              />
+              <input type="text" placeholder="Reps" value={newExReps}
+                onChange={e=>setNewExReps(e.target.value)}
+                style={{background:T.elevated,border:'1px solid '+T.border,borderRadius:8,
+                  color:T.cream,fontSize:13,padding:'9px 10px',fontFamily:'inherit',outline:'none'}}
+              />
+            </div>
+            <button onClick={()=>addExercise(day)} style={{
+              width:'100%',background:T.orange,border:'none',color:'#fff',
+              borderRadius:8,padding:'11px',cursor:'pointer',fontSize:14,
+              fontWeight:700,fontFamily:'inherit',
+            }}>+ Add to {day}</button>
+          </div>
+
+          <button onClick={resetToDefaults} style={{
+            width:'100%',background:'none',border:'1px solid '+T.border,color:T.muted,
+            borderRadius:8,padding:'10px',cursor:'pointer',fontSize:12,
+            fontFamily:'inherit',marginTop:16,
+          }}>Reset all days to default plan</button>
+        </div>
+      </div>
+    );
+  }
 
   // Exercise history view
   if(historyEx){
@@ -3126,6 +3299,11 @@ const GymPage = () => {
             borderRadius:9,padding:'7px 14px',cursor:'pointer',fontSize:12,
             fontWeight:700,fontFamily:'inherit',
           }}>⏱ Rest Timer</button>
+          <button onClick={()=>{setEditDay(activeDay);setView('edit');}} style={{
+            background:T.elevated,border:'1px solid '+T.border,color:T.muted,
+            borderRadius:9,padding:'7px 14px',cursor:'pointer',fontSize:12,
+            fontWeight:700,fontFamily:'inherit',
+          }}>✏️ Edit Plan</button>
         </div>
       </div>
 
@@ -3144,7 +3322,7 @@ const GymPage = () => {
 
       {view==='split'&&(
         <div>
-          {WEEKLY_SPLIT.map((s,i)=>(
+          {weeklySplit.map((s,i)=>(
             <button key={i} onClick={()=>{setActiveDay(s.day);setView('workout');}} style={{
               width:'100%',background:s.day===todayName?T.orangeDim:T.surface,
               border:'1px solid '+(s.day===todayName?T.orange:T.border),
@@ -3160,7 +3338,7 @@ const GymPage = () => {
                 <div style={{fontSize:12,color:T.muted}}>{s.focus}</div>
               </div>
               <div style={{fontSize:12,color:T.muted}}>
-                {(WORKOUTS[s.day]||[]).length} exercises
+                {(workouts[s.day]||[]).length} exercises
               </div>
             </button>
           ))}
