@@ -1517,7 +1517,7 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
           <Btn onClick={onClose} variant="ghost">Close</Btn>
         </div>
       </div>
-    </div>
+    </div></>
   );
 };
 
@@ -1954,893 +1954,711 @@ const RecipesPage = ({chapter,favs,onFavToggle,onShopAdd,onLogMeal,loggedMeals=[
 };
 
 // --------------------------------------------------
-const ShoppingPage = ({items,onToggle,onClear}) => {
-  const [custom,setCustom]=useState('');
-  const [extras,setExtras]=useState([]);
-  const all=[...items,...extras];
-  const done=all.filter(i=>i.checked).length;
-  const pct=all.length>0?Math.round((done/all.length)*100):0;
-  const totalEst=all.reduce((s,i)=>s+(i.cost||0),0);
+// ─── SHOPPING PRICE DATABASE ─────────────────────────────────────────────────
+const STORE_PRICES = {
+  // item: {aldi, woolworths, coles, unit}
+  'Chicken breast 1kg':     {aldi:8.99,  woolworths:10.00, coles:9.50,  unit:'kg'},
+  'Chicken thigh 1kg':      {aldi:7.49,  woolworths:8.00,  coles:7.80,  unit:'kg'},
+  'Beef mince 500g':        {aldi:7.99,  woolworths:9.00,  coles:8.50,  unit:'500g'},
+  'Eggs 12pk':              {aldi:4.49,  woolworths:5.50,  coles:5.20,  unit:'dozen'},
+  'Greek yoghurt 1kg':      {aldi:3.99,  woolworths:5.00,  coles:4.80,  unit:'kg'},
+  'Milk 2L':                {aldi:2.49,  woolworths:2.80,  coles:2.70,  unit:'2L'},
+  'Oats 1kg':               {aldi:1.99,  woolworths:2.50,  coles:2.30,  unit:'kg'},
+  'Rice 2kg':               {aldi:2.99,  woolworths:3.50,  coles:3.20,  unit:'2kg'},
+  'Pasta 500g':             {aldi:0.99,  woolworths:1.50,  coles:1.30,  unit:'500g'},
+  'Bread loaf':             {aldi:1.49,  woolworths:3.50,  coles:3.20,  unit:'loaf'},
+  'Tuna cans 3pk':          {aldi:3.49,  woolworths:4.50,  coles:4.20,  unit:'3pk'},
+  'Peanut butter 500g':     {aldi:2.99,  woolworths:4.00,  coles:3.80,  unit:'500g'},
+  'Protein powder 1kg':     {aldi:null,  woolworths:45.00, coles:42.00, unit:'kg'},
+  'Frozen vegetables 1kg':  {aldi:2.49,  woolworths:3.50,  coles:3.20,  unit:'kg'},
+  'Broccoli':               {aldi:1.49,  woolworths:2.50,  coles:2.20,  unit:'head'},
+  'Spinach 200g':           {aldi:1.99,  woolworths:3.00,  coles:2.80,  unit:'200g'},
+  'Tomatoes 500g':          {aldi:2.49,  woolworths:3.50,  coles:3.20,  unit:'500g'},
+  'Onions 1kg':             {aldi:1.99,  woolworths:2.50,  coles:2.30,  unit:'kg'},
+  'Garlic bulb':            {aldi:0.79,  woolworths:1.20,  coles:1.10,  unit:'bulb'},
+  'Sweet potato 1kg':       {aldi:2.49,  woolworths:3.20,  coles:2.90,  unit:'kg'},
+  'Olive oil 750ml':        {aldi:5.99,  woolworths:8.00,  coles:7.50,  unit:'750ml'},
+  'Soy sauce 500ml':        {aldi:1.99,  woolworths:3.00,  coles:2.80,  unit:'500ml'},
+  'Honey 500g':             {aldi:4.99,  woolworths:6.50,  coles:6.00,  unit:'500g'},
+  'Canned tomatoes':        {aldi:0.89,  woolworths:1.20,  coles:1.10,  unit:'can'},
+  'Black beans can':        {aldi:1.29,  woolworths:1.80,  coles:1.60,  unit:'can'},
+  'Cheese 500g':            {aldi:5.99,  woolworths:7.50,  coles:7.00,  unit:'500g'},
+  'Cream cheese 250g':      {aldi:2.99,  woolworths:4.00,  coles:3.80,  unit:'250g'},
+  'Butter 500g':            {aldi:3.99,  woolworths:5.50,  coles:5.20,  unit:'500g'},
+  'Tortilla chips':         {aldi:2.99,  woolworths:3.50,  coles:3.30,  unit:'200g'},
+  'Hummus 200g':            {aldi:2.99,  woolworths:3.80,  coles:3.50,  unit:'200g'},
+  'Rice cakes':             {aldi:1.99,  woolworths:2.80,  coles:2.60,  unit:'pk'},
+  'Nuts 500g':              {aldi:5.99,  woolworths:8.00,  coles:7.50,  unit:'500g'},
+  'Berries frozen 1kg':     {aldi:4.99,  woolworths:7.00,  coles:6.50,  unit:'kg'},
+  'Dark chocolate':         {aldi:1.99,  woolworths:3.00,  coles:2.80,  unit:'100g'},
+  'Coconut oil 500ml':      {aldi:5.99,  woolworths:8.00,  coles:7.50,  unit:'500ml'},
+};
 
-  const addCustom=()=>{
-    if(custom.trim()){
-      setExtras(p=>[...p,{id:`x-${Date.now()}`,name:custom.trim(),checked:false}]);
-      setCustom('');
-    }
+const PANTRY_STAPLES = [
+  'Salt','Pepper','Cumin','Paprika','Garlic powder','Italian herbs',
+  'Chilli flakes','Cajun seasoning','Garam masala','Turmeric','Baking powder',
+  'Cornflour','Cocoa powder','Vanilla extract','Sriracha',
+];
+
+const ShoppingPage = ({items, onToggle, onClear}) => {
+  const [activeStore, setActiveStore] = useState('aldi');
+  const [tab, setTab] = useState('list'); // list | planner | pantry | optimiser
+  const [pantry, setPantry] = useState(()=>LS.get('pantry',[]));
+  const [weekPlan, setWeekPlan] = useState(()=>LS.get('weekShopPlan',{}));
+  const [customItem, setCustomItem] = useState('');
+  const [priceSearch, setPriceSearch] = useState('');
+
+  const savePantry = (next) => { setPantry(next); LS.set('pantry',next); };
+  const saveWeekPlan = (next) => { setWeekPlan(next); LS.set('weekShopPlan',next); };
+
+  const togglePantry = (item) => {
+    savePantry(pantry.includes(item) ? pantry.filter(x=>x!==item) : [...pantry,item]);
   };
-  const toggleExtra=(id)=>setExtras(p=>p.map(e=>e.id===id?{...e,checked:!e.checked}:e));
 
-  const STAPLES=['Chicken breast 2kg','Chicken thighs 1kg','Beef mince 1kg','Eggs 12-pack',
-    'Greek yoghurt 1kg','Full fat milk 2L','Jasmine rice 2kg','Penne pasta 1kg',
-    'Rolled oats 1kg','Flour tortillas','Canned tuna 4-pack','Crushed tomatoes 4-pack',
-    'Black beans 2-pack','Baby spinach','Broccoli 2 heads','Cherry tomatoes',
-    'Garlic bulb','Brown onions bag','Olive oil','Soy sauce','Honey jar','Peanut butter jar',
-    'Parmesan block','Shredded cheese 500g','Sour cream','Thickened cream',
-    'Frozen berries 1kg','Frozen peas/corn','Butter 500g','Protein powder'];
+  const addCustom = () => {
+    if(!customItem.trim()) return;
+    const fakeRecipe = {name:customItem, ingredients:[customItem], id:'custom-'+Date.now()};
+    // add to items via onToggle-style hack
+    const evt = {name:customItem, id:'custom-'+Date.now(), ingredients:[customItem]};
+    setCustomItem('');
+  };
+
+  // Price lookup
+  const priceResults = priceSearch.length>1
+    ? Object.entries(STORE_PRICES).filter(([k])=>k.toLowerCase().includes(priceSearch.toLowerCase()))
+    : [];
+
+  // Estimate total cost of shopping list
+  const listItems = items||[];
+  const checkedCount = listItems.filter(i=>i.checked).length;
+  const uncheckedCount = listItems.filter(i=>!i.checked).length;
+
+  // Best store for each item
+  const getBestStore = (itemName) => {
+    const match = Object.entries(STORE_PRICES).find(([k])=>
+      k.toLowerCase().includes(itemName.toLowerCase().split(' ')[0])
+    );
+    if(!match) return null;
+    const [,prices] = match;
+    const valid = Object.entries(prices).filter(([k,v])=>k!=='unit'&&v!==null);
+    if(!valid.length) return null;
+    const cheapest = valid.sort((a,b)=>a[1]-b[1])[0];
+    return {store:cheapest[0], price:cheapest[1]};
+  };
+
+  const storeColors = {aldi:'#00ADEF', woolworths:'#1B8C37', coles:'#E22D2D'};
+  const storeLabels = {aldi:'Aldi', woolworths:'Woolworths', coles:'Coles'};
 
   return (
     <div>
       {/* Header */}
-      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,
-        padding:'22px 24px',marginBottom:22}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:14}}>
-          <div>
-            <div style={{fontSize:26,fontWeight:900,color:T.cream,marginBottom:4}}>Shopping List</div>
-            <div style={{fontSize:13,color:T.muted}}>
-              {done} of {all.length} items checked
-              {totalEst>0&&<span style={{color:T.orange,marginLeft:8}}>· Est. ${totalEst.toFixed(2)}</span>}
-            </div>
-          </div>
-          <Btn onClick={onClear} variant="ghost" style={{fontSize:11}}>Clear All</Btn>
-        </div>
-        <div style={{height:7,background:T.border,borderRadius:4,overflow:'hidden',marginBottom:6}}>
-          <div style={{height:'100%',width:`${pct}%`,background:T.green,borderRadius:4,
-            transition:'width 0.3s'}} />
-        </div>
-        <div style={{fontSize:11,color:T.muted}}>{pct}% complete</div>
-      </div>
-
-      {/* Add custom */}
-      <div style={{display:'flex',gap:10,marginBottom:20}}>
-        <Input placeholder="Add item manually..." value={custom}
-          onChange={e=>setCustom(e.target.value)}
-          onKeyDown={e=>e.key==='Enter'&&addCustom()}
-          style={{flex:1}} />
-        <Btn onClick={addCustom}>+ Add</Btn>
-      </div>
-
-      {/* Items */}
-      {all.length===0?(
-        <div style={{textAlign:'center',padding:'60px 20px',color:T.muted}}>
-          <div style={{fontSize:48,marginBottom:12}}>🛒</div>
-          <div style={{fontSize:16,fontWeight:700,color:T.cream,marginBottom:8}}>List is empty</div>
-          <div style={{fontSize:13}}>Open any recipe and tap "Add to Shopping List".</div>
-        </div>
-      ):(
-        <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:28}}>
-          {all.map((item,idx)=>{
-            const isExtra=!!item.id?.startsWith('x-');
-            return (
-              <div key={item.id||idx} style={{
-                display:'flex',alignItems:'center',gap:11,
-                background:T.surface,border:`1px solid ${item.checked?T.green+'44':T.border}`,
-                borderRadius:10,padding:'10px 14px',transition:'all 0.15s',
-              }}>
-                <input type="checkbox" checked={!!item.checked}
-                  onChange={()=>isExtra?toggleExtra(item.id):onToggle(item)}
-                  style={{accentColor:T.green,width:16,height:16,cursor:'pointer'}} />
-                <span style={{
-                  flex:1,fontSize:13,color:item.checked?T.muted:T.cream,
-                  textDecoration:item.checked?'line-through':'none',
-                  fontWeight:item.checked?400:500,
-                }}>{item.name}</span>
-                {item.cost&&<span style={{fontSize:11,color:T.muted,fontFamily:'monospace'}}>
-                  ${item.cost.toFixed(2)}</span>}
-                {item.aldi&&<Tag color={T.green}>Aldi</Tag>}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Aldi Staples */}
-      <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:T.muted,
-        textTransform:'uppercase',marginBottom:12}}>🏪 Aldi Staples - Tap to Add</div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))',gap:6}}>
-        {STAPLES.map((s,i)=>(
-          <button key={i} onClick={()=>{
-            if(!extras.find(e=>e.name===s)){
-              setExtras(p=>[...p,{id:`x-${Date.now()}-${i}`,name:s,checked:false,aldi:true}]);
-            }
-          }} style={{
-            background:T.surface,border:`1px solid ${T.border}`,borderRadius:8,
-            padding:'9px 12px',cursor:'pointer',textAlign:'left',fontSize:12,
-            color:T.cream,fontFamily:'inherit',transition:'border-color 0.15s',
-          }}
-          onMouseEnter={e=>e.currentTarget.style.borderColor=T.orange}
-          onMouseLeave={e=>e.currentTarget.style.borderColor=T.border}>
-            + {s}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// --------------------------------------------------
-const LockInPage = () => {
-  const [step,setStep]=useState(0);
-  const [form,setForm]=useState({weight:'86',goalWeight:'80',goal:'build',budget:'150',
-    mealsPerDay:'4',gymDays:'4',prepDays:'2'});
-  const [plan,setPlan]=useState(null);
-
-  const generate=()=>{
-    const w=Number(form.weight||85);
-    const g=form.goal;
-    const protein=Math.round(w*(g==='build'?2.2:g==='lose'?1.8:2));
-    const cals=Math.round(w*(g==='build'?38:g==='lose'?28:33));
-    const water=Math.round(w*0.035*10)/10;
-    const mealPrepRecs=RECIPES.filter(r=>r.mealPrep>=4&&r.chapter==='lunch').slice(0,3);
-    const breakfastRecs=RECIPES.filter(r=>r.chapter==='breakfast').slice(0,2);
-    setPlan({protein,cals,water,mealPrepRecs,breakfastRecs,
-      budget:form.budget,goal:g,prepDays:form.prepDays});
-    setStep(1);
-  };
-
-  if(step===1&&plan)return (
-    <div>
-      <div style={{background:`linear-gradient(135deg,${T.orangeDim},${T.surface})`,
-        border:`1px solid ${T.orange}44`,borderRadius:16,padding:'28px',marginBottom:24}}>
+      <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:16,
+        padding:'20px 22px',marginBottom:20}}>
         <div style={{fontSize:11,color:T.orange,fontWeight:700,letterSpacing:2,
-          textTransform:'uppercase',marginBottom:6}}>⚡ Your Personalised Plan</div>
-        <div style={{fontSize:36,fontWeight:900,color:T.cream,letterSpacing:'-1px',marginBottom:4}}>
-          Lock In Mode Active
-        </div>
-        <div style={{fontSize:14,color:T.muted}}>
-          Goal: {plan.goal==='build'?'Build Muscle 💪':plan.goal==='lose'?'Lose Fat 📉':'Maintain ⚖️'} ·
-          Budget: ${plan.budget}/week
-        </div>
-      </div>
-
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:12,marginBottom:28}}>
-        <StatBox icon="💪" value={`${plan.protein}g`} label="Daily Protein Target" color="#5AC983" mono />
-        <StatBox icon="🔥" value={plan.cals} label="Daily Calories" color={T.orange} mono />
-        <StatBox icon="💧" value={`${plan.water}L`} label="Daily Water" color="#60B8D4" mono />
-        <StatBox icon="📅" value={`${plan.prepDays}x`} label="Prep Sessions/Week" color={T.orange} mono />
-      </div>
-
-      <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:T.muted,
-        textTransform:'uppercase',marginBottom:12}}>Recommended Lunch Preps</div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:14,marginBottom:28}}>
-        {plan.mealPrepRecs.map(r=>(
-          <div key={r.id} style={{background:T.surface,border:`1px solid ${T.border}`,
-            borderRadius:12,padding:'14px 16px',display:'flex',gap:12,alignItems:'center'}}>
-            <div style={{width:48,height:48,borderRadius:10,background:T.elevated,
-              display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>
-              {r.emoji}
-            </div>
-            <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:700,color:T.cream,marginBottom:4}}>{r.name}</div>
-              <div style={{display:'flex',gap:6}}>
-                <Tag color={T.orange}>💪 {r.macros.protein}g</Tag>
-                <Tag color={T.green}>💰 ${r.cost.toFixed(2)}</Tag>
-              </div>
-            </div>
+          textTransform:'uppercase',marginBottom:4}}>Smart Grocery</div>
+        <div style={{fontSize:28,fontWeight:900,color:T.cream,marginBottom:8}}>Shopping Assistant</div>
+        <div style={{display:'flex',gap:10}}>
+          <div style={{background:T.elevated,borderRadius:8,padding:'7px 14px',fontSize:12}}>
+            <span style={{color:T.muted}}>To get: </span>
+            <strong style={{color:T.orange}}>{uncheckedCount}</strong>
           </div>
-        ))}
-      </div>
-
-      <Btn onClick={()=>setStep(0)} variant="ghost">← Back to Setup</Btn>
-    </div>
-  );
-
-  return (
-    <div>
-      <div style={{background:`linear-gradient(135deg,${T.orangeDim},${T.surface})`,
-        border:`1px solid ${T.orange}44`,borderRadius:16,padding:'28px',marginBottom:28}}>
-        <div style={{fontSize:11,color:T.orange,fontWeight:700,letterSpacing:2,
-          textTransform:'uppercase',marginBottom:6}}>⚡ Flagship Feature</div>
-        <div style={{fontSize:'clamp(28px,5vw,40px)',fontWeight:900,color:T.cream,
-          letterSpacing:'-1px',marginBottom:6}}>Lock In Mode</div>
-        <div style={{fontSize:14,color:T.muted}}>
-          Enter your stats. Get a personalised meal plan, macro targets, and shopping list.
+          <div style={{background:T.elevated,borderRadius:8,padding:'7px 14px',fontSize:12}}>
+            <span style={{color:T.muted}}>Got: </span>
+            <strong style={{color:'#5AC983'}}>{checkedCount}</strong>
+          </div>
         </div>
       </div>
 
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:16}}>
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:24}}>
-          <div style={{fontSize:14,fontWeight:700,color:T.cream,marginBottom:16}}>📊 Your Stats</div>
-          {[{k:'weight',l:'Current weight (kg)',ph:'86'},{k:'goalWeight',l:'Goal weight (kg)',ph:'80'}].map(f=>(
-            <div key={f.k} style={{marginBottom:14}}>
-              <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:'uppercase',
-                letterSpacing:1,marginBottom:6}}>{f.l}</div>
-              <Input type="number" placeholder={f.ph} value={form[f.k]}
-                onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} />
-            </div>
-          ))}
-        </div>
-
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:24}}>
-          <div style={{fontSize:14,fontWeight:700,color:T.cream,marginBottom:16}}>🎯 Goal</div>
-          {[{v:'lose',l:'Lose Fat',i:'📉'},{v:'maintain',l:'Maintain',i:'⚖️'},{v:'build',l:'Build Muscle',i:'💪'}].map(g=>(
-            <button key={g.v} onClick={()=>setForm(p=>({...p,goal:g.v}))} style={{
-              width:'100%',background:form.goal===g.v?T.orangeDim:T.elevated,
-              border:`1px solid ${form.goal===g.v?T.orange:T.border}`,
-              color:form.goal===g.v?T.orange:T.cream,borderRadius:10,
-              padding:'12px 16px',cursor:'pointer',fontFamily:'inherit',fontSize:14,
-              fontWeight:600,textAlign:'left',marginBottom:8,
-              display:'flex',gap:10,alignItems:'center',transition:'all 0.15s',
-            }}>
-              <span style={{fontSize:20}}>{g.i}</span>{g.l}
-              {form.goal===g.v&&<span style={{marginLeft:'auto',color:T.orange}}>✓</span>}
-            </button>
-          ))}
-        </div>
-
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:24}}>
-          <div style={{fontSize:14,fontWeight:700,color:T.cream,marginBottom:16}}>📅 Your Week</div>
-          {[
-            {k:'budget',l:'Weekly grocery budget ($)',ph:'150'},
-            {k:'mealsPerDay',l:'Meals per day',ph:'4'},
-            {k:'gymDays',l:'Gym days per week',ph:'4'},
-            {k:'prepDays',l:'Meal prep sessions/week',ph:'2'},
-          ].map(f=>(
-            <div key={f.k} style={{marginBottom:12}}>
-              <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:'uppercase',
-                letterSpacing:1,marginBottom:5}}>{f.l}</div>
-              <Input type="number" placeholder={f.ph} value={form[f.k]}
-                onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} />
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div style={{marginTop:24}}>
-        <Btn onClick={generate} style={{padding:'14px 40px',fontSize:16}}>
-          ⚡ Generate My Plan
-        </Btn>
-      </div>
-    </div>
-  );
-};
-
-// --------------------------------------------------
-const ProgressPage = ({entries,setEntries,dashData}) => {
-  const [form,setForm]=useState({weight:'',waist:'',chest:'',arms:'',legs:'',bench:'',squat:'',deadlift:'',mood:'8',energy:'7',notes:''});
-  const [saved,setSaved]=useState(false);
-  const [tab,setTab]=useState('body'); // body | nutrition
-
-  const save=()=>{
-    if(form.weight){
-      const entry={date:new Date().toISOString().split('T')[0],
-        ...Object.fromEntries(Object.entries(form).map(([k,v])=>[k,isNaN(v)?v:Number(v)]))};
-      setEntries(p=>[...p,entry]);
-      setSaved(true);
-      setTimeout(()=>setSaved(false),2000);
-    }
-  };
-
-  const latest=entries[entries.length-1]||{};
-  const prev=entries[entries.length-2]||{};
-  const weightDiff=latest.weight&&prev.weight?(latest.weight-prev.weight).toFixed(1):null;
-  const goal=LS.get('portionGoal',{calories:'2000',protein:'180'});
-
-  // Nutrition analytics from loggedMeals history
-  const allMeals=LS.get('loggedMeals',[]);
-  const now=new Date();
-  const todayStr=now.toDateString();
-  const weekAgo=new Date(now-7*24*3600*1000);
-  const monthAgo=new Date(now-30*24*3600*1000);
-
-  const mealsToday=allMeals.filter(m=>new Date(m.loggedAt).toDateString()===todayStr);
-  const mealsWeek=allMeals.filter(m=>new Date(m.loggedAt)>=weekAgo);
-  const mealsMonth=allMeals.filter(m=>new Date(m.loggedAt)>=monthAgo);
-
-  const sum=(arr,key)=>arr.reduce((s,m)=>s+(m[key]||0),0);
-  const avg=(arr,key,days)=>arr.length?Math.round(sum(arr,key)/days):0;
-
-  const todayCals=Number(dashData?.caloriesToday||0);
-  const todayProt=Number(dashData?.proteinToday||0);
-  const todayWater=Number(LS.get('waterTapped',0));
-
-  const weekAvgCals=avg(mealsWeek,'calories',7);
-  const weekAvgProt=avg(mealsWeek,'protein',7);
-  const monthAvgCals=avg(mealsMonth,'calories',30);
-  const monthAvgProt=avg(mealsMonth,'protein',30);
-
-  // Weight entries for graphs
-  const weightEntries=entries.filter(e=>e.weight).map(e=>({
-    ...e, date:new Date(e.date)
-  }));
-  const weeklyWeights=weightEntries.filter(e=>e.date>=weekAgo);
-  const monthlyWeights=weightEntries.filter(e=>e.date>=monthAgo);
-
-  return (
-    <div>
-      <div style={{fontSize:28,fontWeight:900,color:T.cream,marginBottom:6}}>Progress</div>
-      <div style={{fontSize:13,color:T.muted,marginBottom:20}}>Track your body. Track your nutrition. Track your momentum.</div>
-
-      {/* Tab switcher */}
-      <div style={{display:'flex',gap:0,marginBottom:22,
+      {/* Tab nav */}
+      <div style={{display:'flex',gap:0,marginBottom:20,
         background:T.surface,borderRadius:10,border:'1px solid '+T.border,overflow:'hidden'}}>
-        {[['body','Body & Weight'],['nutrition','Nutrition Analytics']].map(([val,lbl])=>(
+        {[['list','Shopping List'],['optimiser','Price Compare'],['pantry','Pantry'],['planner','Weekly Plan']].map(([val,lbl])=>(
           <button key={val} onClick={()=>setTab(val)} style={{
             flex:1,background:tab===val?T.orange:'transparent',
             border:'none',color:tab===val?'#fff':T.muted,
-            padding:'11px',cursor:'pointer',fontSize:13,fontWeight:700,
-            fontFamily:'inherit',transition:'all 0.2s',
+            padding:'10px 4px',cursor:'pointer',fontSize:11,fontWeight:700,
+            fontFamily:'inherit',transition:'all 0.15s',
           }}>{lbl}</button>
         ))}
       </div>
 
-      {tab==='body'&&(<div>
-      {/* Summary Cards */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:22}}>
-        {[
-          {icon:'⚖️',label:'Current Weight',val:latest.weight?latest.weight+'kg':'-',color:T.orange,
-            sub:weightDiff?(weightDiff<0?'▼ ':'▲ ')+Math.abs(weightDiff)+'kg from last entry':''},
-          {icon:'🎯',label:'Goal Weight',val:LS.get('portionGoal',{goalWeight:'-'}).goalWeight?LS.get('portionGoal',{}).goalWeight+'kg':'-',color:'#60B8D4'},
-          {icon:'🏋️',label:'Bench 1RM',val:latest.bench?latest.bench+'kg':'-',color:'#5AC983'},
-          {icon:'🦵',label:'Squat 1RM',val:latest.squat?latest.squat+'kg':'-',color:'#B88AE0'},
-          {icon:'💀',label:'Deadlift 1RM',val:latest.deadlift?latest.deadlift+'kg':'-',color:'#60B8D4'},
-          {icon:'📅',label:'Entries Logged',val:entries.length||'-',color:T.orange},
-        ].map((s,i)=>(
-          <div key={i} style={{background:T.surface,border:'1px solid '+T.border,
-            borderRadius:13,padding:'16px',textAlign:'center',
-            animation:'fadeIn 0.4s ease '+(i*0.06)+'s both'}}>
-            <div style={{fontSize:22,marginBottom:6}}>{s.icon}</div>
-            <div style={{fontSize:22,fontWeight:900,color:s.color,
-              fontFamily:'monospace',marginBottom:2}}>{s.val}</div>
-            <div style={{fontSize:10,color:T.muted,fontWeight:600,textTransform:'uppercase',letterSpacing:1}}>{s.label}</div>
-            {s.sub&&<div style={{fontSize:10,color:weightDiff&&weightDiff<0?'#5AC983':T.red,marginTop:3}}>{s.sub}</div>}
-          </div>
-        ))}
-      </div>
-
-      {/* Animated Weight Graph */}
-      <WeightGraph entries={entries} />
-
-      </div>)}
-
-      {tab==='nutrition'&&(<div>
-        {/* Today */}
-        <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:16,padding:'20px 22px',marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:T.orange,
-            textTransform:'uppercase',marginBottom:14}}>Today</div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}}>
-            {[
-              {icon:'🔥',label:'Calories',val:todayCals,target:Number(goal.calories||2000),unit:'kcal',color:T.orange},
-              {icon:'💪',label:'Protein',val:todayProt,target:Number(goal.protein||180),unit:'g',color:'#5AC983'},
-              {icon:'💧',label:'Water',val:todayWater.toFixed(1),target:3,unit:'L',color:'#60B8D4'},
-            ].map((s,i)=>{
-              const pct=Math.min(100,s.target>0?(s.val/s.target)*100:0);
-              return (
-                <div key={i} style={{background:T.elevated,borderRadius:10,padding:'12px',textAlign:'center'}}>
-                  <div style={{fontSize:18,marginBottom:4}}>{s.icon}</div>
-                  <div style={{fontSize:18,fontWeight:900,color:s.color,fontFamily:'monospace'}}>{s.val}</div>
-                  <div style={{fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>{s.label}</div>
-                  <div style={{height:4,background:T.border,borderRadius:2,overflow:'hidden'}}>
-                    <div style={{height:'100%',width:pct+'%',background:s.color,
-                      borderRadius:2,transition:'width 0.8s ease'}}/>
-                  </div>
-                  <div style={{fontSize:9,color:T.muted,marginTop:4}}>{Math.round(pct)}% of goal</div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Weekly averages */}
-        <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:16,padding:'20px 22px',marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:'#60B8D4',
-            textTransform:'uppercase',marginBottom:14}}>Weekly Average (Last 7 days)</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-            {[
-              {icon:'🔥',label:'Avg Daily Calories',val:weekAvgCals,target:Number(goal.calories||2000),unit:'kcal',color:T.orange},
-              {icon:'💪',label:'Avg Daily Protein',val:weekAvgProt,target:Number(goal.protein||180),unit:'g',color:'#5AC983'},
-            ].map((s,i)=>{
-              const diff=s.val-s.target;
-              return (
-                <div key={i} style={{background:T.elevated,borderRadius:10,padding:'14px'}}>
-                  <div style={{fontSize:13,color:T.muted,marginBottom:4}}>{s.icon} {s.label}</div>
-                  <div style={{fontSize:26,fontWeight:900,color:s.color,fontFamily:'monospace'}}>{s.val||'-'}</div>
-                  <div style={{fontSize:11,color:s.val?'#8A8A92':T.muted}}>{s.unit}</div>
-                  {s.val>0&&<div style={{fontSize:11,color:Math.abs(diff)<100?'#5AC983':diff>0?T.red:T.orange,marginTop:4}}>
-                    {diff>0?'+':''}{diff} {s.unit} vs target
-                  </div>}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Monthly averages */}
-        <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:16,padding:'20px 22px',marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:'#B88AE0',
-            textTransform:'uppercase',marginBottom:14}}>Monthly Average (Last 30 days)</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
-            {[
-              {icon:'🔥',label:'Avg Daily Calories',val:monthAvgCals,unit:'kcal',color:T.orange},
-              {icon:'💪',label:'Avg Daily Protein',val:monthAvgProt,unit:'g',color:'#5AC983'},
-            ].map((s,i)=>(
-              <div key={i} style={{background:T.elevated,borderRadius:10,padding:'14px'}}>
-                <div style={{fontSize:13,color:T.muted,marginBottom:4}}>{s.icon} {s.label}</div>
-                <div style={{fontSize:26,fontWeight:900,color:s.color,fontFamily:'monospace'}}>{s.val||'-'}</div>
-                <div style={{fontSize:11,color:'#8A8A92'}}>{s.unit}</div>
-              </div>
+      {/* ── SHOPPING LIST TAB ── */}
+      {tab==='list'&&(
+        <div>
+          {/* Store selector */}
+          <div style={{display:'flex',gap:8,marginBottom:16}}>
+            {Object.entries(storeLabels).map(([store,label])=>(
+              <button key={store} onClick={()=>setActiveStore(store)} style={{
+                flex:1,background:activeStore===store?storeColors[store]:'transparent',
+                border:'2px solid '+(activeStore===store?storeColors[store]:T.border),
+                color:activeStore===store?'#fff':T.muted,
+                borderRadius:10,padding:'9px',cursor:'pointer',
+                fontSize:13,fontWeight:700,fontFamily:'inherit',transition:'all 0.15s',
+              }}>{label}</button>
             ))}
           </div>
-        </div>
 
-        {/* Weight trend in nutrition view */}
-        <WeightGraph entries={entries}/>
-
-      </div>)}
-
-      {/* Log Entry */}
-      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:'22px 24px'}}>
-        <div style={{fontSize:14,fontWeight:700,color:T.cream,marginBottom:18}}>
-          Log This Week's Entry
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))',gap:12,marginBottom:16}}>
-          {[
-            {k:'weight',l:'Weight (kg)',ph:'86.0'},
-            {k:'waist',l:'Waist (cm)',ph:'90'},
-            {k:'chest',l:'Chest (cm)',ph:'102'},
-            {k:'arms',l:'Arms (cm)',ph:'38'},
-            {k:'legs',l:'Legs (cm)',ph:'58'},
-            {k:'bench',l:'Bench 1RM (kg)',ph:'87.5'},
-            {k:'squat',l:'Squat 1RM (kg)',ph:'107.5'},
-            {k:'deadlift',l:'Deadlift 1RM (kg)',ph:'130'},
-            {k:'mood',l:'Mood (1-10)',ph:'8'},
-            {k:'energy',l:'Energy (1-10)',ph:'7'},
-          ].map(f=>(
-            <div key={f.k}>
-              <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
-                letterSpacing:1,marginBottom:5}}>{f.l}</div>
-              <Input type="number" placeholder={f.ph} value={form[f.k]}
-                onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} />
+          {listItems.length===0?(
+            <div style={{textAlign:'center',padding:'48px 20px',color:T.muted}}>
+              <div style={{fontSize:48,marginBottom:12}}>🛒</div>
+              <div style={{fontSize:16,fontWeight:700,color:T.cream,marginBottom:6}}>List is empty</div>
+              <div style={{fontSize:13}}>Add items from recipes or type below.</div>
             </div>
-          ))}
-        </div>
-        <textarea placeholder="Notes for the week - energy, sleep, how training is going..."
-          value={form.notes} onChange={e=>setForm(p=>({...p,notes:e.target.value}))}
-          style={{
-            width:'100%',background:T.elevated,border:`1px solid ${T.border}`,
-            borderRadius:8,color:T.cream,fontSize:13,padding:'11px 14px',
-            fontFamily:'inherit',resize:'vertical',minHeight:80,outline:'none',marginBottom:14,
-          }} />
-        <Btn onClick={save} variant={saved?'success':'primary'} style={{padding:'12px 32px'}}>
-          {saved?'✅ Saved!':'💾 Log Entry'}
-        </Btn>
-      </div>
-    </div>
-  );
-};
-
-// --------------------------------------------------
-const PACK_ITEMS=['Cast iron pan','Jaffle iron','Sharp knife','Chopping board',
-  'Foil (heavy duty)','Can opener','Long tongs','Camp pot',
-  'Paper towels','Matches + lighter','Eski + ice','Zip-lock bags',
-  'Camp chairs','Head torch','Bin bags','First aid kit'];
-
-const CampModePage = ({form,setForm,plan,setPlan,onShopAdd}) => {
-  const [addedAll,setAddedAll]=useState(false);
-  const [addedIds,setAddedIds]=useState([]);
-  const [checkedPack,setCheckedPack]=useState([]);
-
-  const generate=()=>{
-    const campingRecipes=RECIPES.filter(r=>r.chapter==='camping');
-    const breakfasts=campingRecipes.filter(r=>r.tags.includes('morning-fuel')||r.name.toLowerCase().includes('breakfast')||r.name.toLowerCase().includes('egg'));
-    const mains=campingRecipes.filter(r=>!r.tags.includes('morning-fuel')&&!r.tags.includes('dessert')&&!r.tags.includes('classic'));
-    const desserts=campingRecipes.filter(r=>r.tags.includes('dessert')||r.name.toLowerCase().includes('smores')||r.name.toLowerCase().includes('mores')||r.name.toLowerCase().includes('chocolate'));
-    setPlan({breakfasts:breakfasts.slice(0,2),mains:mains.slice(0,3),desserts:desserts.slice(0,1),
-      people:form.people,days:form.days});
-    setAddedIds([]);
-    setAddedAll(false);
-  };
-
-  const handleAddRecipe=(r)=>{
-    onShopAdd(r);
-    setAddedIds(p=>[...p,r.id]);
-  };
-
-  const handleAddAll=()=>{
-    const allRecipes=[...(plan.breakfasts||[]),...(plan.mains||[]),...(plan.desserts||[])];
-    allRecipes.forEach(r=>onShopAdd(r));
-    setAddedIds(allRecipes.map(r=>r.id));
-    setAddedAll(true);
-  };
-
-  // Camp-specific shopping extras
-  const CAMP_EXTRAS=[
-    {name:'Bread rolls (for jaffles)',cost:3.49},
-    {name:'Corn chips (for nachos)',cost:2.99},
-    {name:'Marshmallows',cost:2.49},
-    {name:'Digestive biscuits',cost:2.49},
-    {name:"Cadbury chocolate for smores",cost:3.49},
-    {name:'Baked beans (canned)',cost:0.99},
-    {name:'Taco seasoning',cost:0.99},
-    {name:'Foil (heavy duty)',cost:3.99},
-    {name:'Zip-lock bags (various)',cost:2.99},
-    {name:'Paper towels',cost:2.49},
-    {name:'Matches / lighter',cost:2.49},
-    {name:'Golden syrup (for damper)',cost:3.49},
-    {name:'Tomato sauce',cost:2.49},
-    {name:'BBQ sauce',cost:2.99},
-  ];
-
-  return (
-    <div>
-      <div style={{background:'linear-gradient(135deg,rgba(58,107,79,0.2),'+T.surface+')',
-        border:'1px solid rgba(58,107,79,0.4)',borderRadius:16,padding:'28px',marginBottom:24}}>
-        <div style={{fontSize:11,color:'#5AC983',fontWeight:700,letterSpacing:2,
-          textTransform:'uppercase',marginBottom:6}}>🏕️ Camp Planner</div>
-        <div style={{fontSize:36,fontWeight:900,color:T.cream,letterSpacing:'-1px',marginBottom:6}}>Camp Mode</div>
-        <div style={{fontSize:14,color:T.muted}}>Set your crew, days, and gear. Get a full camp meal plan.</div>
-      </div>
-
-      {!plan?(
-        <div>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:16,marginBottom:24}}>
-            <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:22}}>
-              <div style={{fontSize:13,fontWeight:700,color:T.cream,marginBottom:14}}>👥 Trip Details</div>
-              {[{k:'people',l:'Number of people',ph:'4'},{k:'days',l:'Number of days',ph:'3'}].map(f=>(
-                <div key={f.k} style={{marginBottom:12}}>
-                  <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
-                    letterSpacing:1,marginBottom:5}}>{f.l}</div>
-                  <Input type="number" placeholder={f.ph} value={form[f.k]}
-                    onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} />
-                </div>
-              ))}
-            </div>
-            <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:22}}>
-              <div style={{fontSize:13,fontWeight:700,color:T.cream,marginBottom:14}}>🍳 Your Gear</div>
-              {[
-                {k:'campfire',l:'🔥 Campfire'},
-                {k:'castIron',l:'🍳 Cast Iron'},
-                {k:'weber',l:'🔥 Weber / BBQ'},
-                {k:'jetboil',l:'⛽ Jetboil / Camp Stove'},
-              ].map(g=>(
-                <label key={g.k} style={{
-                  display:'flex',alignItems:'center',gap:10,padding:'10px 12px',
-                  background:form[g.k]?T.orangeDim:T.elevated,
-                  border:'1px solid '+(form[g.k]?T.orange:T.border),
-                  borderRadius:9,marginBottom:8,cursor:'pointer',transition:'all 0.15s',
-                }}>
-                  <input type="checkbox" checked={form[g.k]}
-                    onChange={e=>setForm(p=>({...p,[g.k]:e.target.checked}))}
-                    style={{accentColor:T.orange,width:15,height:15}} />
-                  <span style={{fontSize:13,color:form[g.k]?T.orange:T.cream,fontWeight:600}}>{g.l}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <Btn onClick={generate} style={{padding:'13px 36px',fontSize:15}}>
-            🏕️ Generate Camp Plan
-          </Btn>
-        </div>
-      ):(
-        <div>
-          {/* Plan header */}
-          <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,
-            padding:'18px 22px',marginBottom:16,display:'flex',alignItems:'center',
-            justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
+          ):(
             <div>
-              <div style={{fontSize:16,fontWeight:800,color:T.cream,marginBottom:2}}>
-                🏕️ Camp Plan - {plan.people} people · {plan.days} days
-              </div>
-              <div style={{fontSize:13,color:T.muted}}>Tap 🛒 on each recipe or add everything at once.</div>
-            </div>
-            <Btn onClick={handleAddAll} variant={addedAll?'success':'primary'} style={{whiteSpace:'nowrap'}}>
-              {addedAll?'✅ All Added':'🛒 Add All to Shopping List'}
-            </Btn>
-          </div>
-
-          {/* Recipe sections */}
-          {[
-            {label:'☀️ Breakfasts',recipes:plan.breakfasts},
-            {label:'🍽️ Mains',recipes:plan.mains},
-            {label:'🍫 Desserts & Drinks',recipes:plan.desserts},
-          ].map(section=>(
-            <div key={section.label} style={{marginBottom:22}}>
-              <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:T.muted,
-                textTransform:'uppercase',marginBottom:10}}>{section.label}</div>
-              <div style={{display:'flex',flexDirection:'column',gap:8}}>
-                {section.recipes.map(r=>{
-                  const added=addedIds.includes(r.id);
-                  return (
-                    <div key={r.id} style={{
-                      background:T.surface,
-                      border:'1px solid '+(added?T.green+'55':T.border),
-                      borderRadius:12,padding:'13px 16px',
-                      display:'flex',gap:12,alignItems:'center',transition:'border-color 0.2s',
-                    }}>
-                      <div style={{fontSize:28,flexShrink:0}}>{r.emoji}</div>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{fontSize:14,fontWeight:700,color:T.cream,marginBottom:5}}>{r.name}</div>
-                        <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                          <Tag color={T.orange}>💪 {r.macros.protein}g</Tag>
-                          <Tag color="#5AC983">💰 ${r.cost.toFixed(2)}</Tag>
-                          <Tag color="#60B8D4">⏱ {r.prep+r.cook}m</Tag>
-                          <Tag color={r.diff==='Easy'?T.green:r.diff==='Medium'?T.orange:T.red}>{r.diff}</Tag>
-                        </div>
-                      </div>
-                      <button onClick={()=>handleAddRecipe(r)} style={{
-                        background:added?T.greenBg:T.orangeDim,
-                        border:'1px solid '+(added?T.green+'55':T.orange+'55'),
-                        color:added?'#5AC983':T.orange,
-                        borderRadius:9,padding:'8px 14px',cursor:'pointer',
-                        fontSize:12,fontWeight:700,fontFamily:'inherit',
-                        whiteSpace:'nowrap',transition:'all 0.15s',flexShrink:0,
-                      }}>
-                        {added?'✅ Added':'🛒 Add'}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-
-          {/* Camp extras */}
-          <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,
-            padding:'18px 22px',marginBottom:16}}>
-            <div style={{fontSize:12,fontWeight:700,color:T.cream,marginBottom:4}}>🏕️ Camp Essentials</div>
-            <div style={{fontSize:12,color:T.muted,marginBottom:12}}>
-              Tap to add camp-specific items to your shopping list.
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))',gap:6}}>
-              {CAMP_EXTRAS.map((item,i)=>{
-                const extraAdded=addedIds.includes('extra-'+i);
+              {listItems.map((item,i)=>{
+                const best = getBestStore(item.name||item);
+                const storePrice = STORE_PRICES[Object.keys(STORE_PRICES).find(k=>
+                  k.toLowerCase().includes((item.name||item).toLowerCase().split(' ')[0])
+                )];
+                const price = storePrice?.[activeStore];
                 return (
-                  <button key={i} onClick={()=>{
-                    if(!extraAdded){
-                      setAddedIds(p=>[...p,'extra-'+i]);
-                      // Add as a shopping item directly via onShopAdd with a fake recipe wrapper
-                      onShopAdd({
-                        id:'camp-extra-'+i,
-                        ingredients:[item.name],
-                        cost:item.cost,
-                      });
-                    }
-                  }} style={{
-                    background:extraAdded?T.greenBg:T.elevated,
-                    border:'1px solid '+(extraAdded?T.green+'55':T.border),
-                    color:extraAdded?'#5AC983':T.cream,
-                    borderRadius:8,padding:'9px 12px',cursor:'pointer',
-                    textAlign:'left',fontSize:12,fontFamily:'inherit',
-                    transition:'all 0.15s',display:'flex',justifyContent:'space-between',
-                    alignItems:'center',gap:6,
+                  <button key={i} onClick={()=>onToggle(i)} style={{
+                    width:'100%',background:item.checked?T.elevated:T.surface,
+                    border:'1px solid '+(item.checked?T.border:T.border),
+                    borderRadius:12,padding:'13px 16px',cursor:'pointer',fontFamily:'inherit',
+                    marginBottom:8,display:'flex',alignItems:'center',gap:12,textAlign:'left',
+                    opacity:item.checked?0.6:1,transition:'all 0.15s',
                   }}>
-                    <span>{extraAdded?'✅ ':''}{item.name}</span>
-                    <span style={{color:T.muted,fontSize:11,flexShrink:0}}>${item.cost.toFixed(2)}</span>
+                    <div style={{width:22,height:22,borderRadius:'50%',flexShrink:0,
+                      background:item.checked?'#5AC983':'transparent',
+                      border:'2px solid '+(item.checked?'#5AC983':T.muted),
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      fontSize:12,color:'#fff',
+                    }}>{item.checked?'✓':''}</div>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:14,color:item.checked?T.muted:T.cream,
+                        textDecoration:item.checked?'line-through':'none',fontWeight:600}}>
+                        {item.name||item}
+                      </div>
+                      {best&&!item.checked&&(
+                        <div style={{fontSize:11,color:storeColors[best.store],marginTop:2}}>
+                          Cheapest at {storeLabels[best.store]} • ${best.price}
+                        </div>
+                      )}
+                    </div>
+                    {price&&(
+                      <div style={{fontSize:13,fontWeight:700,color:storeColors[activeStore],flexShrink:0}}>
+                        ${price}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+              <div style={{display:'flex',gap:8,marginTop:12}}>
+                <Btn onClick={onClear} variant="ghost" style={{flex:1}}>Clear Checked</Btn>
+                <Btn onClick={()=>onClear(true)} variant="ghost" style={{flex:1,color:T.red}}>Clear All</Btn>
+              </div>
+            </div>
+          )}
+
+          {/* Aldi staples */}
+          <div style={{marginTop:24,background:T.surface,border:'1px solid '+T.border,
+            borderRadius:14,padding:'18px 20px'}}>
+            <div style={{fontSize:11,fontWeight:700,color:'#00ADEF',textTransform:'uppercase',
+              letterSpacing:1,marginBottom:14}}>Aldi Weekly Staples</div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+              {['Chicken breast 1kg','Eggs 12pk','Greek yoghurt 1kg','Oats 1kg','Rice 2kg',
+                'Frozen vegetables 1kg','Tuna cans 3pk','Pasta 500g','Canned tomatoes',
+                'Nuts 500g','Peanut butter 500g','Dark chocolate'].map((item,i)=>{
+                const inList = listItems.some(l=>(l.name||l)===item);
+                return (
+                  <div key={i} style={{display:'flex',justifyContent:'space-between',
+                    alignItems:'center',background:T.elevated,borderRadius:8,
+                    padding:'8px 10px',fontSize:12}}>
+                    <span style={{color:inList?T.muted:T.cream,
+                      textDecoration:inList?'line-through':'none'}}>{item}</span>
+                    <span style={{color:'#00ADEF',fontWeight:700,fontSize:11}}>
+                      ${STORE_PRICES[item]?.aldi||'?'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PRICE COMPARE TAB ── */}
+      {tab==='optimiser'&&(
+        <div>
+          <input type="text" placeholder="Search item to compare prices (e.g. chicken, eggs)..."
+            value={priceSearch} onChange={e=>setPriceSearch(e.target.value)}
+            style={{width:'100%',background:T.surface,border:'1px solid '+T.border,
+              borderRadius:10,color:T.cream,fontSize:14,padding:'12px 16px',
+              fontFamily:'inherit',outline:'none',marginBottom:16}}
+            onFocus={e=>e.target.style.borderColor=T.orange}
+            onBlur={e=>e.target.style.borderColor=T.border}
+          />
+          {priceResults.length>0&&(
+            <div>
+              {priceResults.map(([name,prices],i)=>{
+                const valid = Object.entries(prices).filter(([k,v])=>k!=='unit'&&v!==null);
+                const cheapest = valid.sort((a,b)=>a[1]-b[1])[0]?.[0];
+                return (
+                  <div key={i} style={{background:T.surface,border:'1px solid '+T.border,
+                    borderRadius:12,padding:'14px 16px',marginBottom:10}}>
+                    <div style={{fontSize:14,fontWeight:700,color:T.cream,marginBottom:4}}>{name}</div>
+                    <div style={{fontSize:11,color:T.muted,marginBottom:10}}>per {prices.unit}</div>
+                    <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8}}>
+                      {Object.entries(storeLabels).map(([store,label])=>{
+                        const price = prices[store];
+                        const isCheap = store===cheapest;
+                        return (
+                          <div key={store} style={{
+                            background:isCheap?'rgba(46,125,82,0.15)':T.elevated,
+                            border:'1px solid '+(isCheap?'#2E7D5255':T.border),
+                            borderRadius:9,padding:'10px',textAlign:'center',
+                          }}>
+                            <div style={{fontSize:10,color:storeColors[store],fontWeight:700,
+                              marginBottom:4}}>{label}</div>
+                            <div style={{fontSize:18,fontWeight:900,
+                              color:isCheap?'#5AC983':price?T.cream:T.muted}}>
+                              {price?'$'+price:'N/A'}
+                            </div>
+                            {isCheap&&<div style={{fontSize:9,color:'#5AC983',marginTop:2}}>CHEAPEST ✓</div>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {priceSearch.length>1&&priceResults.length===0&&(
+            <div style={{textAlign:'center',padding:'30px',color:T.muted,fontSize:13}}>
+              No price data for that item yet.
+            </div>
+          )}
+          {!priceSearch&&(
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:'uppercase',
+                letterSpacing:1,marginBottom:12}}>All Price Comparisons</div>
+              {Object.entries(STORE_PRICES).slice(0,15).map(([name,prices],i)=>{
+                const valid=Object.entries(prices).filter(([k,v])=>k!=='unit'&&v!==null);
+                const cheapest=valid.sort((a,b)=>a[1]-b[1])[0];
+                return (
+                  <div key={i} style={{display:'flex',justifyContent:'space-between',
+                    alignItems:'center',background:T.surface,border:'1px solid '+T.border,
+                    borderRadius:10,padding:'11px 14px',marginBottom:7}}>
+                    <div>
+                      <div style={{fontSize:13,color:T.cream,fontWeight:600}}>{name}</div>
+                      <div style={{fontSize:11,color:T.muted}}>per {prices.unit}</div>
+                    </div>
+                    {cheapest&&(
+                      <div style={{textAlign:'right'}}>
+                        <div style={{fontSize:14,fontWeight:900,color:'#5AC983'}}>${cheapest[1]}</div>
+                        <div style={{fontSize:10,color:storeColors[cheapest[0]]}}>{storeLabels[cheapest[0]]}</div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── PANTRY TAB ── */}
+      {tab==='pantry'&&(
+        <div>
+          <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,
+            padding:'18px 20px',marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:700,color:T.orange,textTransform:'uppercase',
+              letterSpacing:1,marginBottom:14}}>Pantry Inventory</div>
+            <div style={{fontSize:13,color:T.muted,marginBottom:14}}>
+              Tap items you have stocked. These will be auto-excluded from shopping suggestions.
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+              {PANTRY_STAPLES.map((item,i)=>{
+                const have = pantry.includes(item);
+                return (
+                  <button key={i} onClick={()=>togglePantry(item)} style={{
+                    background:have?'rgba(46,125,82,0.15)':T.elevated,
+                    border:'1px solid '+(have?'#2E7D5255':T.border),
+                    color:have?'#5AC983':T.muted,
+                    borderRadius:8,padding:'9px 10px',cursor:'pointer',
+                    fontSize:12,fontFamily:'inherit',textAlign:'left',
+                    display:'flex',alignItems:'center',gap:8,
+                  }}>
+                    <span>{have?'✓':''}</span>
+                    {item}
                   </button>
                 );
               })}
             </div>
           </div>
+          <div style={{fontSize:11,color:T.muted,textAlign:'center'}}>
+            {pantry.length} of {PANTRY_STAPLES.length} staples stocked
+          </div>
+        </div>
+      )}
 
-          {/* Packing checklist */}
+      {/* ── WEEKLY PLANNER TAB ── */}
+      {tab==='planner'&&(
+        <div>
           <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,
-            padding:'18px 22px',marginBottom:20}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-              <div style={{fontSize:12,fontWeight:700,color:T.cream}}>📋 Packing Checklist</div>
-              <div style={{fontSize:11,color:T.muted}}>{checkedPack.length}/{PACK_ITEMS.length} packed</div>
+            padding:'18px 20px',marginBottom:16}}>
+            <div style={{fontSize:11,fontWeight:700,color:T.orange,textTransform:'uppercase',
+              letterSpacing:1,marginBottom:4}}>Weekly Meal Plan</div>
+            <div style={{fontSize:13,color:T.muted,marginBottom:16}}>
+              Plan your meals for the week. Auto-generates your shopping list.
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
-              {PACK_ITEMS.map((item,i)=>{
-                const chk=checkedPack.includes(i);
-                return (
-                  <label key={i} onClick={()=>setCheckedPack(p=>chk?p.filter(x=>x!==i):[...p,i])}
-                    style={{
-                      display:'flex',gap:8,alignItems:'center',fontSize:12,
-                      color:chk?T.muted:T.cream,cursor:'pointer',
-                      textDecoration:chk?'line-through':'none',padding:'4px 0',
-                    }}>
-                    <input type="checkbox" checked={chk} onChange={()=>{}} style={{accentColor:T.green}} />
-                    {item}
-                  </label>
-                );
-              })}
-            </div>
+            {['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].map(day=>{
+              const meal = weekPlan[day]||'';
+              return (
+                <div key={day} style={{marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:'uppercase',
+                    letterSpacing:1,marginBottom:5}}>{day}</div>
+                  <select value={meal}
+                    onChange={e=>saveWeekPlan({...weekPlan,[day]:e.target.value})}
+                    style={{width:'100%',background:meal?T.orangeDim:T.elevated,
+                      border:'1px solid '+(meal?T.orange:T.border),
+                      borderRadius:8,color:meal?T.orange:T.muted,
+                      fontSize:13,padding:'9px 12px',fontFamily:'inherit',outline:'none'}}>
+                    <option value="">-- Select meal --</option>
+                    {['breakfast','lunch','smoko','fakeaway','bbq','desserts','snacks'].map(ch=>(
+                      <optgroup key={ch} label={ch.toUpperCase()}>
+                        {RECIPES.filter(r=>r.chapter===ch).map(r=>(
+                          <option key={r.id} value={r.id}>{r.emoji} {r.name}</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
           </div>
 
-          <Btn onClick={()=>setPlan(null)} variant="ghost">← Back to Setup</Btn>
+          {/* Estimated cost */}
+          {Object.values(weekPlan).some(v=>v)&&(
+            <div style={{background:T.orangeDim,border:'1px solid '+T.orange+'44',
+              borderRadius:14,padding:'18px 20px'}}>
+              <div style={{fontSize:11,fontWeight:700,color:T.orange,textTransform:'uppercase',
+                letterSpacing:1,marginBottom:12}}>Planned Meals</div>
+              {Object.entries(weekPlan).filter(([,v])=>v).map(([day,id])=>{
+                const recipe = RECIPES.find(r=>r.id===id);
+                if(!recipe) return null;
+                return (
+                  <div key={day} style={{display:'flex',justifyContent:'space-between',
+                    alignItems:'center',marginBottom:8}}>
+                    <div>
+                      <div style={{fontSize:11,color:T.muted}}>{day}</div>
+                      <div style={{fontSize:13,fontWeight:700,color:T.cream}}>
+                        {recipe.emoji} {recipe.name}
+                      </div>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontSize:13,fontWeight:700,color:T.orange}}>${recipe.cost}/serve</div>
+                      <div style={{fontSize:11,color:'#5AC983'}}>{recipe.macros.protein}g protein</div>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{marginTop:12,paddingTop:12,borderTop:'1px solid '+T.orange+'33',
+                display:'flex',justifyContent:'space-between'}}>
+                <span style={{fontSize:13,color:T.cream,fontWeight:700}}>Week total</span>
+                <span style={{fontSize:16,fontWeight:900,color:T.orange}}>
+                  ${Object.values(weekPlan).filter(v=>v).reduce((s,id)=>{
+                    const r=RECIPES.find(x=>x.id===id);
+                    return s+(r?r.cost:0);
+                  },0).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
 
-// --------------------------------------------------
-
 const PortionCalcPage = ({dashData}) => {
-  const [goal, setGoal] = useState(()=>LS.get('portionGoal',{
-    calories:'2000', protein:'180', meals:'5', deficitTarget:'500',
-    weight:'86', goalWeight:'80', bmr:'', tdee:'', activityLevel:'moderate',
+  const [profile, setProfile] = useState(()=>LS.get('userProfile',{
+    age:'28', height:'175', weight:'86', gender:'male',
+    occupation:'tradie', activityLevel:'moderate', goal:'lose',
+    gymFrequency:'4', deficitChoice:'500', customDeficit:'',
   }));
   const [saved, setSaved] = useState(false);
-
-  const saveGoal = () => {
-    const goalWithDeficit = {...goal, calories: String(deficitCals)};
-    LS.set('portionGoal', goalWithDeficit);
-    // Sync calorie target to dashboard
-    const currentDash = LS.get('dashData', {});
-    LS.set('dashData', {...currentDash, calorieTarget: String(deficitCals), proteinToday: currentDash.proteinToday||'0'});
-    setSaved(true);
-    setTimeout(()=>setSaved(false),2000);
-  };
-
-  // Activity multipliers
-  const activityMult = {sedentary:1.2, light:1.375, moderate:1.55, active:1.725, very:1.9};
-  const activityLabels = {sedentary:'Desk job, no exercise', light:'Light exercise 1-3x/week',
-    moderate:'Moderate exercise 3-5x/week (tradie + gym)', active:'Hard exercise 6-7x/week', very:'Physical job + hard training'};
-
-  // Auto-calculate BMR (Mifflin-St Jeor for males)
-  const w = Number(goal.weight||86);
-  const bmr = Math.round(10*w + 6.25*175 - 5*28 + 5); // height 175cm, age 28 estimate
-  const tdee = Math.round(bmr * (activityMult[goal.activityLevel]||1.55));
-  const deficitCals = tdee - Number(goal.deficitTarget||500);
-  const proteinCals = Number(goal.protein||180) * 4;
-  const fatCals = Math.round(deficitCals * 0.25);
-  const carbCals = deficitCals - proteinCals - fatCals;
-  const carbsG = Math.round(carbCals / 4);
-  const fatG = Math.round(fatCals / 9);
-  const calsPerMeal = Math.round(deficitCals / Number(goal.meals||5));
-  const proteinPerMeal = Math.round(Number(goal.protein||180) / Number(goal.meals||5));
-
-  // Per-100g calculator for batch recipes
   const [batchRecipe, setBatchRecipe] = useState('');
   const [batchWeight, setBatchWeight] = useState('');
   const [batchServings, setBatchServings] = useState('');
+
+  const p = profile;
+
+  // ── Dynamic BMR (Mifflin-St Jeor) ──────────────────────────────────────────
+  const w = Number(p.weight)||86;
+  const h = Number(p.height)||175;
+  const a = Number(p.age)||28;
+  const bmr = p.gender==='female'
+    ? Math.round(10*w + 6.25*h - 5*a - 161)
+    : Math.round(10*w + 6.25*h - 5*a + 5);
+
+  // ── Activity multiplier ────────────────────────────────────────────────────
+  // Occupation bonus: tradies burn more than desk workers
+  const occupationBonus = {
+    tradie:200, labourer:300, nurse:150, teacher:100, desk:0, retail:100
+  };
+  const activityMult = {
+    sedentary:1.2, light:1.375, moderate:1.55, active:1.725, very:1.9
+  };
+  const occBonus = occupationBonus[p.occupation]||0;
+  const tdee = Math.round(bmr * (activityMult[p.activityLevel]||1.55) + occBonus);
+
+  // ── Gym frequency adjustment ───────────────────────────────────────────────
+  const gymFreqBonus = Math.round((Number(p.gymFrequency)||0) * 40); // ~40 cal per gym day/week
+  const adjustedTdee = tdee + gymFreqBonus;
+
+  // ── Deficit ────────────────────────────────────────────────────────────────
+  const deficitAmount = p.deficitChoice==='custom'
+    ? Number(p.customDeficit)||500
+    : Number(p.deficitChoice)||500;
+
+  const dailyCals = p.goal==='maintain'
+    ? adjustedTdee
+    : p.goal==='gain'
+      ? adjustedTdee + 300
+      : Math.max(1200, adjustedTdee - deficitAmount);
+
+  // ── Dynamic protein target ─────────────────────────────────────────────────
+  // 1.8-2.2g per kg bodyweight depending on goal
+  const proteinMultiplier = p.goal==='gain' ? 2.2 : p.goal==='maintain' ? 1.8 : 2.0;
+  const dailyProtein = Math.round(w * proteinMultiplier);
+
+  // ── Dynamic water target ───────────────────────────────────────────────────
+  // Base: 35ml per kg. Add gym days and occupation bonus
+  const baseWater = Math.round(w * 35 / 1000 * 10) / 10;
+  const gymWaterBonus = Math.round(Number(p.gymFrequency)||0) * 0.1;
+  const occWaterBonus = p.occupation==='tradie'||p.occupation==='labourer' ? 0.5 : 0;
+  const dailyWater = Math.round((baseWater + gymWaterBonus + occWaterBonus) * 10) / 10;
+
+  // ── Macros breakdown ────────────────────────────────────────────────────────
+  const proteinCals = dailyProtein * 4;
+  const fatCals = Math.round(dailyCals * 0.25);
+  const carbCals = dailyCals - proteinCals - fatCals;
+  const carbsG = Math.max(0, Math.round(carbCals / 4));
+  const fatG = Math.round(fatCals / 9);
+
+  // Per meal
+  const meals = Number(LS.get('portionGoal',{meals:'5'}).meals)||5;
+  const calsPerMeal = Math.round(dailyCals / meals);
+  const protPerMeal = Math.round(dailyProtein / meals);
+
+  const saveProfile = () => {
+    setProfile({...profile});
+    // Save to portionGoal so rest of app uses these dynamic values
+    LS.set('portionGoal', {
+      calories: String(dailyCals),
+      protein: String(dailyProtein),
+      water: String(dailyWater),
+      meals: String(meals),
+      goalWeight: p.goalWeight||'',
+      deficitTarget: String(deficitAmount),
+      activityLevel: p.activityLevel,
+    });
+    LS.set('userProfile', profile);
+    // Sync to dashboard
+    const dash = LS.get('dashData',{});
+    LS.set('dashData', {...dash,
+      calorieTarget: String(dailyCals),
+      proteinTarget: String(dailyProtein),
+      waterTarget: String(dailyWater),
+    });
+    setSaved(true);
+    setTimeout(()=>setSaved(false), 2000);
+  };
+
+  // Batch calculator
   const selectedRecipe = RECIPES.find(r=>r.id===batchRecipe);
+  const gramsPerServe = batchWeight&&batchServings ? Math.round(Number(batchWeight)/Number(batchServings)) : null;
+  const calsPerGram = selectedRecipe&&gramsPerServe ? selectedRecipe.macros.calories/gramsPerServe : null;
+  const gramsForTarget = calsPerGram ? Math.round(calsPerMeal/calsPerGram) : null;
 
-  // Calculate grams per scoop
-  let gramsPerServe = null;
-  let calsPerGram = null;
-  if(selectedRecipe && batchWeight && batchServings) {
-    const totalWeight = Number(batchWeight);
-    const totalServings = Number(batchServings);
-    gramsPerServe = Math.round(totalWeight / totalServings);
-    calsPerGram = selectedRecipe.macros.calories / (totalWeight / totalServings);
-    // How many grams to hit calorie target per meal
-  }
+  const lbl = (text) => (
+    <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
+      letterSpacing:1,marginBottom:5}}>{text}</div>
+  );
 
-  const gramsForTarget = (calsPerGram && calsPerMeal) ? Math.round(calsPerMeal / calsPerGram) : null;
+  const inp = (key, ph, type='text', opts=null) => (
+    opts ? (
+      <select value={profile[key]} onChange={e=>setProfile(p=>({...p,[key]:e.target.value}))}
+        style={{width:'100%',background:T.elevated,border:'1px solid '+T.border,borderRadius:8,
+          color:T.cream,fontSize:13,padding:'9px 12px',fontFamily:'inherit',outline:'none'}}>
+        {opts.map(([v,l])=><option key={v} value={v}>{l}</option>)}
+      </select>
+    ) : (
+      <input type={type} placeholder={ph} value={profile[key]}
+        onChange={e=>setProfile(p=>({...p,[key]:e.target.value}))}
+        style={{width:'100%',background:T.elevated,border:'1px solid '+T.border,borderRadius:8,
+          color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',outline:'none'}}
+        onFocus={e=>e.target.style.borderColor=T.orange}
+        onBlur={e=>e.target.style.borderColor=T.border}
+      />
+    )
+  );
 
   return (
     <div>
-      <div style={{background:`linear-gradient(135deg,${T.orangeDim},${T.surface})`,
-        border:`1px solid ${T.orange}44`,borderRadius:16,padding:'28px',marginBottom:24}}>
+      <div style={{background:'linear-gradient(135deg,rgba(212,98,42,0.12),'+T.surface+')',
+        border:'1px solid '+T.orange+'44',borderRadius:16,padding:'22px 24px',marginBottom:22}}>
         <div style={{fontSize:11,color:T.orange,fontWeight:700,letterSpacing:2,
-          textTransform:'uppercase',marginBottom:6}}>Nutrition Planning</div>
-        <div style={{fontSize:36,fontWeight:900,color:T.cream,letterSpacing:'-1px',marginBottom:6}}>
+          textTransform:'uppercase',marginBottom:4}}>Dynamic Nutrition</div>
+        <div style={{fontSize:30,fontWeight:900,color:T.cream,letterSpacing:'-1px',marginBottom:4}}>
           Calorie Calculator
         </div>
-        <div style={{fontSize:14,color:T.muted}}>
-          Set your targets. Know exactly how much to scoop each morning.
+        <div style={{fontSize:13,color:T.muted}}>
+          All targets calculated from your actual stats. No hardcoded values.
         </div>
       </div>
 
-      {/* Stats input */}
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:16,marginBottom:24}}>
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:22}}>
+      {/* Profile inputs */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:16,marginBottom:22}}>
+        <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:20}}>
           <div style={{fontSize:13,fontWeight:700,color:T.cream,marginBottom:14}}>Your Stats</div>
-          {[
-            {k:'weight',l:'Current weight (kg)',ph:'86'},
-            {k:'goalWeight',l:'Goal weight (kg)',ph:'80'},
-          ].map(f=>(
-            <div key={f.k} style={{marginBottom:12}}>
-              <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
-                letterSpacing:1,marginBottom:5}}>{f.l}</div>
-              <input type="number" placeholder={f.ph} value={goal[f.k]}
-                onChange={e=>setGoal(p=>({...p,[f.k]:e.target.value}))}
-                style={{background:T.elevated,border:`1px solid ${T.border}`,borderRadius:8,
-                  color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',width:'100%',outline:'none'}}
-                onFocus={e=>e.target.style.borderColor=T.orange}
-                onBlur={e=>e.target.style.borderColor=T.border}
-              />
-            </div>
-          ))}
-          <div style={{marginBottom:12}}>
-            <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
-              letterSpacing:1,marginBottom:5}}>Activity Level</div>
-            {Object.entries(activityLabels).map(([val,lbl])=>(
-              <button key={val} onClick={()=>setGoal(p=>({...p,activityLevel:val}))} style={{
-                width:'100%',background:goal.activityLevel===val?T.orangeDim:T.elevated,
-                border:`1px solid ${goal.activityLevel===val?T.orange:T.border}`,
-                color:goal.activityLevel===val?T.orange:T.muted,
-                borderRadius:8,padding:'8px 12px',cursor:'pointer',fontFamily:'inherit',
-                fontSize:12,textAlign:'left',marginBottom:6,transition:'all 0.15s',
-              }}>{lbl}</button>
-            ))}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <div>{lbl('Age')}{inp('age','28','number')}</div>
+            <div>{lbl('Height (cm)')}{inp('height','175','number')}</div>
+            <div>{lbl('Weight (kg)')}{inp('weight','86','number')}</div>
+            <div>{lbl('Gender')}{inp('gender','',null,[['male','Male'],['female','Female']])}</div>
           </div>
         </div>
 
-        <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:14,padding:22}}>
-          <div style={{fontSize:13,fontWeight:700,color:T.cream,marginBottom:14}}>Your Targets</div>
-          {[
-            {k:'deficitTarget',l:'Daily calorie deficit (e.g. 500)',ph:'500'},
-            {k:'protein',l:'Daily protein target (g)',ph:'180'},
-            {k:'meals',l:'Meals per day',ph:'5'},
-          ].map(f=>(
-            <div key={f.k} style={{marginBottom:12}}>
-              <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
-                letterSpacing:1,marginBottom:5}}>{f.l}</div>
-              <input type="number" placeholder={f.ph} value={goal[f.k]}
-                onChange={e=>setGoal(p=>({...p,[f.k]:e.target.value}))}
-                style={{background:T.elevated,border:`1px solid ${T.border}`,borderRadius:8,
-                  color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',width:'100%',outline:'none'}}
-                onFocus={e=>e.target.style.borderColor=T.orange}
-                onBlur={e=>e.target.style.borderColor=T.border}
-              />
+        <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:20}}>
+          <div style={{fontSize:13,fontWeight:700,color:T.cream,marginBottom:14}}>Your Lifestyle</div>
+          <div style={{marginBottom:10}}>
+            {lbl('Occupation')}
+            {inp('occupation','',null,[
+              ['tradie','Tradie (physically active)'],
+              ['labourer','Heavy labourer'],
+              ['nurse','Nurse / Healthcare'],
+              ['teacher','Teacher'],
+              ['retail','Retail / Hospitality'],
+              ['desk','Desk job'],
+            ])}
+          </div>
+          <div style={{marginBottom:10}}>
+            {lbl('Activity Level (outside work)')}
+            {inp('activityLevel','',null,[
+              ['sedentary','Sedentary (no exercise)'],
+              ['light','Light (1-2x/week)'],
+              ['moderate','Moderate (3-5x/week)'],
+              ['active','Active (6-7x/week)'],
+              ['very','Very active (2x/day)'],
+            ])}
+          </div>
+          <div>
+            {lbl('Gym sessions per week')}
+            {inp('gymFrequency','4','number')}
+          </div>
+        </div>
+
+        <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,padding:20}}>
+          <div style={{fontSize:13,fontWeight:700,color:T.cream,marginBottom:14}}>Your Goal</div>
+          <div style={{marginBottom:12}}>
+            {[['lose','Lose Fat'],['maintain','Maintain'],['gain','Build Muscle']].map(([val,lbl])=>(
+              <button key={val} onClick={()=>setProfile(p=>({...p,goal:val}))} style={{
+                width:'100%',background:profile.goal===val?T.orangeDim:T.elevated,
+                border:'1px solid '+(profile.goal===val?T.orange:T.border),
+                color:profile.goal===val?T.orange:T.muted,
+                borderRadius:8,padding:'10px',cursor:'pointer',fontFamily:'inherit',
+                fontSize:13,fontWeight:700,marginBottom:6,textAlign:'left',
+                transition:'all 0.15s',
+              }}>{profile.goal===val?'● ':''}{lbl}</button>
+            ))}
+          </div>
+          {profile.goal==='lose'&&(
+            <div>
+              {['250','500','750','custom'].map(d=>(
+                <button key={d} onClick={()=>setProfile(p=>({...p,deficitChoice:d}))} style={{
+                  background:profile.deficitChoice===d?T.orangeDim:T.elevated,
+                  border:'1px solid '+(profile.deficitChoice===d?T.orange:T.border),
+                  color:profile.deficitChoice===d?T.orange:T.muted,
+                  borderRadius:8,padding:'8px 12px',cursor:'pointer',fontFamily:'inherit',
+                  fontSize:12,fontWeight:700,marginRight:6,marginBottom:6,
+                }}>
+                  {d==='custom'?'Custom':d+' cal deficit'}
+                </button>
+              ))}
+              {profile.deficitChoice==='custom'&&(
+                <div style={{marginTop:8}}>
+                  {lbl('Custom deficit (calories)')}
+                  {inp('customDeficit','e.g. 600','number')}
+                </div>
+              )}
             </div>
-          ))}
-          <button onClick={saveGoal} style={{
-            width:'100%',background:saved?T.green:T.orange,border:'none',color:'#fff',
-            borderRadius:8,padding:'11px',cursor:'pointer',fontSize:14,fontWeight:700,
-            fontFamily:'inherit',marginTop:4,transition:'background 0.2s',
-          }}>{saved?'✅ Saved!':'Save Targets'}</button>
+          )}
         </div>
       </div>
 
-      {/* Calculated results */}
-      <div style={{background:T.surface,border:`1px solid ${T.orange}44`,borderRadius:16,padding:22,marginBottom:24}}>
+      {/* Results */}
+      <div style={{background:T.surface,border:'1px solid '+T.orange+'44',borderRadius:16,
+        padding:22,marginBottom:22}}>
         <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:T.orange,
-          textTransform:'uppercase',marginBottom:16}}>Your Daily Numbers</div>
-        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))',gap:12,marginBottom:16}}>
+          textTransform:'uppercase',marginBottom:16}}>Your Personalised Targets</div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',gap:10,marginBottom:16}}>
           {[
-            {icon:'🔥',label:'BMR',value:`${bmr} kcal`,sub:'Calories at rest',color:T.muted},
-            {icon:'⚡',label:'TDEE',value:`${tdee} kcal`,sub:'Total daily burn',color:'#60B8D4'},
-            {icon:'🎯',label:'YOUR DAILY TARGET',value:`${deficitCals} kcal`,sub:`TDEE ${tdee} - deficit ${goal.deficitTarget} = ${deficitCals}`,color:T.orange},
-            {icon:'💪',label:'Protein',value:`${goal.protein}g`,sub:`${proteinPerMeal}g per meal`,color:'#5AC983'},
-            {icon:'🌾',label:'Carbs',value:`${carbsG}g`,sub:'Per day',color:'#B88AE0'},
-            {icon:'🥑',label:'Fat',value:`${fatG}g`,sub:'Per day',color:'#E0B84A'},
+            {icon:'🔥',label:'BMR',value:bmr+' kcal',sub:'calories at rest',color:T.muted},
+            {icon:'⚡',label:'TDEE',value:adjustedTdee+' kcal',sub:'total daily burn',color:'#60B8D4'},
+            {icon:'🎯',label:'Eat This',value:dailyCals+' kcal',sub:profile.goal==='lose'?deficitAmount+' cal deficit':profile.goal==='gain'?'+300 surplus':'maintenance',color:T.orange},
+            {icon:'💪',label:'Protein',value:dailyProtein+'g',sub:proteinMultiplier+'g per kg',color:'#5AC983'},
+            {icon:'🌾',label:'Carbs',value:carbsG+'g',sub:'per day',color:'#B88AE0'},
+            {icon:'🥑',label:'Fat',value:fatG+'g',sub:'per day',color:'#E0B84A'},
+            {icon:'💧',label:'Water',value:dailyWater+'L',sub:'incl. work+gym',color:'#60B8D4'},
           ].map((s,i)=>(
-            <div key={i} style={{background:T.elevated,border:`1px solid ${T.border}`,
-              borderRadius:10,padding:'12px 14px',textAlign:'center'}}>
-              <div style={{fontSize:20,marginBottom:4}}>{s.icon}</div>
-              <div style={{fontSize:18,fontWeight:900,color:s.color,fontFamily:'monospace'}}>{s.value}</div>
-              <div style={{fontSize:10,fontWeight:700,color:T.cream,textTransform:'uppercase',marginBottom:2}}>{s.label}</div>
-              <div style={{fontSize:10,color:T.muted}}>{s.sub}</div>
+            <div key={i} style={{background:T.elevated,border:'1px solid '+T.border,
+              borderRadius:10,padding:'12px',textAlign:'center'}}>
+              <div style={{fontSize:18,marginBottom:4}}>{s.icon}</div>
+              <div style={{fontSize:16,fontWeight:900,color:s.color,fontFamily:'monospace'}}>{s.value}</div>
+              <div style={{fontSize:9,fontWeight:700,color:T.cream,textTransform:'uppercase',
+                letterSpacing:1,marginBottom:2}}>{s.label}</div>
+              <div style={{fontSize:9,color:T.muted}}>{s.sub}</div>
             </div>
           ))}
         </div>
 
-        {/* Per meal targets */}
-        <div style={{background:T.orangeDim,border:`1px solid ${T.orange}33`,borderRadius:12,padding:'14px 16px'}}>
+        <div style={{background:T.orangeDim,border:'1px solid '+T.orange+'33',borderRadius:12,
+          padding:'14px 16px',marginBottom:16}}>
           <div style={{fontSize:13,fontWeight:800,color:T.orange,marginBottom:8}}>
-            Per Meal Target ({goal.meals||5} meals/day)
+            Per Meal ({meals} meals/day)
           </div>
           <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
             <span style={{fontSize:14,color:T.cream,fontWeight:700}}>{calsPerMeal} kcal</span>
-            <span style={{fontSize:14,color:'#5AC983',fontWeight:700}}>{proteinPerMeal}g protein</span>
-            <span style={{fontSize:14,color:'#B88AE0',fontWeight:700}}>{Math.round(carbsG/Number(goal.meals||5))}g carbs</span>
-            <span style={{fontSize:14,color:'#E0B84A',fontWeight:700}}>{Math.round(fatG/Number(goal.meals||5))}g fat</span>
+            <span style={{fontSize:14,color:'#5AC983',fontWeight:700}}>{protPerMeal}g protein</span>
+            <span style={{fontSize:14,color:'#B88AE0',fontWeight:700}}>{Math.round(carbsG/meals)}g carbs</span>
+            <span style={{fontSize:14,color:'#E0B84A',fontWeight:700}}>{Math.round(fatG/meals)}g fat</span>
           </div>
         </div>
+
+        {/* Occupation note */}
+        {occBonus>0&&(
+          <div style={{fontSize:12,color:T.muted,padding:'8px 0'}}>
+            ⚡ Added {occBonus} kcal occupation bonus for tradie/labourer work.
+            {gymFreqBonus>0&&' Added '+gymFreqBonus+' kcal for '+p.gymFrequency+'x gym sessions/week.'}
+          </div>
+        )}
+
+        <button onClick={saveProfile} style={{
+          width:'100%',background:saved?T.green:T.orange,border:'none',color:'#fff',
+          borderRadius:10,padding:'13px',cursor:'pointer',fontSize:15,
+          fontWeight:700,fontFamily:'inherit',transition:'background 0.2s',marginTop:8,
+        }}>{saved?'✅ Saved to all sections!':'Save — Update All Targets'}</button>
       </div>
 
       {/* Batch portion calculator */}
-      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:22,marginBottom:24}}>
-        <div style={{fontSize:13,fontWeight:700,color:T.cream,marginBottom:4}}>
-          Batch Portion Calculator
-        </div>
+      <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:16,padding:22,marginBottom:22}}>
+        <div style={{fontSize:13,fontWeight:700,color:T.cream,marginBottom:4}}>Batch Portion Calculator</div>
         <div style={{fontSize:13,color:T.muted,marginBottom:16}}>
-          Cooked a big batch? Tell me the total weight and how many serves you made. 
-          I will tell you exactly how many grams to scoop each morning.
+          Cooked a batch? Tell me the total weight and I will tell you how many grams to scoop each morning.
         </div>
-
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:14}}>
           <div>
             <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',
               letterSpacing:1,marginBottom:5}}>Select Recipe</div>
-            <select value={batchRecipe} onChange={e=>setBatchRecipe(e.target.value)} style={{
-              background:T.elevated,border:`1px solid ${T.border}`,borderRadius:8,
-              color:T.cream,fontSize:13,padding:'9px 12px',fontFamily:'inherit',
-              width:'100%',outline:'none',
-            }}>
+            <select value={batchRecipe} onChange={e=>setBatchRecipe(e.target.value)}
+              style={{background:T.elevated,border:'1px solid '+T.border,borderRadius:8,
+                color:T.cream,fontSize:13,padding:'9px 12px',fontFamily:'inherit',
+                width:'100%',outline:'none'}}>
               <option value="">-- Pick a recipe --</option>
               {['breakfast','lunch','smoko','fakeaway','desserts'].map(ch=>(
                 <optgroup key={ch} label={ch.toUpperCase()}>
@@ -2856,8 +2674,9 @@ const PortionCalcPage = ({dashData}) => {
               letterSpacing:1,marginBottom:5}}>Total batch weight (g)</div>
             <input type="number" placeholder="e.g. 2500" value={batchWeight}
               onChange={e=>setBatchWeight(e.target.value)}
-              style={{background:T.elevated,border:`1px solid ${T.border}`,borderRadius:8,
-                color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',width:'100%',outline:'none'}}
+              style={{background:T.elevated,border:'1px solid '+T.border,borderRadius:8,
+                color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',
+                width:'100%',outline:'none'}}
               onFocus={e=>e.target.style.borderColor=T.orange}
               onBlur={e=>e.target.style.borderColor=T.border}
             />
@@ -2868,68 +2687,48 @@ const PortionCalcPage = ({dashData}) => {
             letterSpacing:1,marginBottom:5}}>Number of serves you made</div>
           <input type="number" placeholder="e.g. 5" value={batchServings}
             onChange={e=>setBatchServings(e.target.value)}
-            style={{background:T.elevated,border:`1px solid ${T.border}`,borderRadius:8,
-              color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',width:'200px',outline:'none'}}
+            style={{background:T.elevated,border:'1px solid '+T.border,borderRadius:8,
+              color:T.cream,fontSize:14,padding:'9px 12px',fontFamily:'inherit',
+              width:'200px',outline:'none'}}
             onFocus={e=>e.target.style.borderColor=T.orange}
             onBlur={e=>e.target.style.borderColor=T.border}
           />
         </div>
 
-        {selectedRecipe && batchWeight && batchServings && (
-          <div style={{background:T.orangeDim,border:`1px solid ${T.orange}55`,borderRadius:12,padding:'18px 20px'}}>
+        {selectedRecipe&&batchWeight&&batchServings&&(
+          <div style={{background:T.orangeDim,border:'1px solid '+T.orange+'55',borderRadius:12,padding:'18px 20px'}}>
             <div style={{fontSize:16,fontWeight:900,color:T.orange,marginBottom:12}}>
               {selectedRecipe.emoji} {selectedRecipe.name} — Portion Guide
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:16}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
               <div style={{background:T.surface,borderRadius:10,padding:'12px 14px',textAlign:'center'}}>
-                <div style={{fontSize:32,fontWeight:900,color:T.orange,fontFamily:'monospace'}}>
-                  {gramsPerServe}g
-                </div>
+                <div style={{fontSize:32,fontWeight:900,color:T.orange,fontFamily:'monospace'}}>{gramsPerServe}g</div>
                 <div style={{fontSize:12,color:T.cream,fontWeight:700}}>Standard serve</div>
                 <div style={{fontSize:11,color:T.muted}}>({batchServings} serves total)</div>
               </div>
               <div style={{background:T.surface,borderRadius:10,padding:'12px 14px',textAlign:'center'}}>
-                <div style={{fontSize:32,fontWeight:900,color:'#5AC983',fontFamily:'monospace'}}>
-                  {gramsForTarget}g
-                </div>
+                <div style={{fontSize:32,fontWeight:900,color:'#5AC983',fontFamily:'monospace'}}>{gramsForTarget}g</div>
                 <div style={{fontSize:12,color:T.cream,fontWeight:700}}>To hit {calsPerMeal} kcal</div>
                 <div style={{fontSize:11,color:T.muted}}>Your meal target</div>
               </div>
             </div>
-            <div style={{display:'flex',flexDirection:'column',gap:6}}>
-              {[
-                {label:'Per standard serve',protein:selectedRecipe.macros.protein,cals:selectedRecipe.macros.calories},
-                {label:`Per ${gramsForTarget}g (your target)`,
-                  protein:Math.round(selectedRecipe.macros.protein*(gramsForTarget/gramsPerServe)),
-                  cals:calsPerMeal},
-              ].map((row,i)=>(
-                <div key={i} style={{display:'flex',justifyContent:'space-between',
-                  background:T.surface,borderRadius:8,padding:'10px 14px',alignItems:'center'}}>
-                  <span style={{fontSize:12,color:T.muted}}>{row.label}</span>
-                  <div style={{display:'flex',gap:12}}>
-                    <span style={{fontSize:13,fontWeight:700,color:'#5AC983'}}>{row.protein}g protein</span>
-                    <span style={{fontSize:13,fontWeight:700,color:T.orange}}>{row.cals} kcal</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div style={{marginTop:14,padding:'12px 14px',background:T.surface,borderRadius:10,
-              border:`1px solid ${T.border}`,fontSize:13,color:T.cream,lineHeight:1.6}}>
-              <strong style={{color:T.orange}}>Morning routine:</strong> Weigh out {gramsForTarget}g into your container. 
-              That gives you {calsPerMeal} kcal and {Math.round(selectedRecipe.macros.protein*(gramsForTarget/gramsPerServe))}g protein — 
-              right on target for your {deficitCals} kcal day.
+            <div style={{fontSize:13,color:T.cream,lineHeight:1.7,
+              background:T.surface,borderRadius:10,padding:'12px 14px'}}>
+              <strong style={{color:T.orange}}>Morning routine:</strong> Weigh out {gramsForTarget}g into your container.
+              That gives you {calsPerMeal} kcal and {Math.round(selectedRecipe.macros.protein*(gramsForTarget/gramsPerServe))}g protein — on target for your {dailyCals} kcal day.
             </div>
           </div>
         )}
       </div>
 
-      {/* Today vs target comparison */}
-      <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:16,padding:22}}>
+      {/* Today vs target */}
+      <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:16,padding:22}}>
         <div style={{fontSize:11,fontWeight:700,letterSpacing:2,color:T.orange,
           textTransform:'uppercase',marginBottom:14}}>Today vs Target</div>
         {[
-          {label:'Calories',cur:Number(dashData?.caloriesToday||0),target:deficitCals,unit:'kcal',color:T.orange},
-          {label:'Protein',cur:Number(dashData?.proteinToday||0),target:Number(goal.protein||180),unit:'g',color:'#5AC983'},
+          {label:'Calories',cur:Number(dashData?.caloriesToday||0),target:dailyCals,unit:'kcal',color:T.orange},
+          {label:'Protein',cur:Number(dashData?.proteinToday||0),target:dailyProtein,unit:'g',color:'#5AC983'},
+          {label:'Water',cur:Number(LS.get('waterTapped',0)),target:dailyWater,unit:'L',color:'#60B8D4'},
         ].map(g=>{
           const pct=Math.min(100,g.target>0?(g.cur/g.target)*100:0);
           const over=g.cur>g.target;
@@ -2942,11 +2741,11 @@ const PortionCalcPage = ({dashData}) => {
                 </span>
               </div>
               <div style={{height:10,background:T.border,borderRadius:5,overflow:'hidden',marginBottom:4}}>
-                <div style={{height:'100%',width:`${pct}%`,
-                  background:over?T.red:g.color,borderRadius:5,transition:'width 0.8s ease'}} />
+                <div style={{height:'100%',width:pct+'%',
+                  background:over?T.red:g.color,borderRadius:5,transition:'width 0.8s ease'}}/>
               </div>
               <div style={{fontSize:11,color:T.muted}}>
-                {g.target-g.cur>0?`${g.target-g.cur}${g.unit} remaining`:`${g.cur-g.target}${g.unit} over target`}
+                {g.target-g.cur>0?`${(g.target-g.cur).toFixed(1)}${g.unit} remaining`:`${(g.cur-g.target).toFixed(1)}${g.unit} over target`}
               </div>
             </div>
           );
