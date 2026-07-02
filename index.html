@@ -1041,8 +1041,258 @@ const LogMealButton = ({recipe, onLogMeal, onClose}) => {
   );
 };
 
+
+// Common ingredients with calorie data (per 100g unless noted)
+const INGREDIENT_DB = [
+  // Proteins
+  {name:'Chicken breast',cal:165,prot:31,carb:0,fat:4,unit:'g'},
+  {name:'Chicken thigh',cal:209,prot:26,carb:0,fat:11,unit:'g'},
+  {name:'Beef mince (lean)',cal:215,prot:26,carb:0,fat:12,unit:'g'},
+  {name:'Salmon fillet',cal:208,prot:20,carb:0,fat:13,unit:'g'},
+  {name:'Tuna (canned, drained)',cal:116,prot:26,carb:0,fat:1,unit:'g'},
+  {name:'Eggs (each)',cal:78,prot:6,carb:1,fat:5,unit:'each'},
+  {name:'Bacon rasher',cal:45,prot:3,carb:0,fat:4,unit:'each'},
+  // Dairy
+  {name:'Feta cheese',cal:264,prot:14,carb:4,fat:21,unit:'g'},
+  {name:'Cheddar cheese',cal:403,prot:25,carb:1,fat:33,unit:'g'},
+  {name:'Mozzarella',cal:280,prot:28,carb:3,fat:17,unit:'g'},
+  {name:'Parmesan',cal:431,prot:38,carb:4,fat:29,unit:'g'},
+  {name:'Greek yoghurt',cal:59,prot:10,carb:4,fat:1,unit:'g'},
+  {name:'Cream',cal:345,prot:2,carb:3,fat:36,unit:'g'},
+  {name:'Milk (full fat)',cal:61,prot:3,carb:5,fat:3,unit:'g'},
+  // Carbs
+  {name:'Rice (cooked)',cal:130,prot:3,carb:28,fat:0,unit:'g'},
+  {name:'Pasta (cooked)',cal:158,prot:6,carb:31,fat:1,unit:'g'},
+  {name:'Bread slice',cal:79,prot:3,carb:15,fat:1,unit:'each'},
+  {name:'Potato',cal:77,prot:2,carb:17,fat:0,unit:'g'},
+  {name:'Sweet potato',cal:86,prot:2,carb:20,fat:0,unit:'g'},
+  {name:'Oats (dry)',cal:389,prot:17,carb:66,fat:7,unit:'g'},
+  // Fats
+  {name:'Olive oil',cal:884,prot:0,carb:0,fat:100,unit:'g'},
+  {name:'Peanut butter',cal:588,prot:25,carb:20,fat:50,unit:'g'},
+  {name:'Avocado',cal:160,prot:2,carb:9,fat:15,unit:'g'},
+  {name:'Almonds',cal:579,prot:21,carb:22,fat:50,unit:'g'},
+  // Vegetables
+  {name:'Broccoli',cal:34,prot:3,carb:7,fat:0,unit:'g'},
+  {name:'Spinach',cal:23,prot:3,carb:4,fat:0,unit:'g'},
+  {name:'Tomato',cal:18,prot:1,carb:4,fat:0,unit:'g'},
+  {name:'Onion',cal:40,prot:1,carb:9,fat:0,unit:'g'},
+  {name:'Garlic clove',cal:5,prot:0,carb:1,fat:0,unit:'each'},
+  {name:'Mushrooms',cal:22,prot:3,carb:3,fat:0,unit:'g'},
+  {name:'Capsicum',cal:31,prot:1,carb:6,fat:0,unit:'g'},
+  // Sauces & extras
+  {name:'Soy sauce (tbsp)',cal:9,prot:1,carb:1,fat:0,unit:'tbsp'},
+  {name:'Honey (tbsp)',cal:64,prot:0,carb:17,fat:0,unit:'tbsp'},
+  {name:'Pesto (tbsp)',cal:80,prot:2,carb:2,fat:8,unit:'tbsp'},
+  {name:'Pasta sauce (tbsp)',cal:15,prot:1,carb:3,fat:0,unit:'tbsp'},
+  {name:'Hummus (tbsp)',cal:25,prot:1,carb:2,fat:2,unit:'tbsp'},
+  {name:'Sriracha (tsp)',cal:5,prot:0,carb:1,fat:0,unit:'tsp'},
+];
+
+const RecipeEditor = ({recipe:r, onClose}) => {
+  const savedCustom = LS.get('customIngredients-'+r.id, {
+    extraIngredients: [],
+    removedIngredients: [],
+    extraCalories: 0,
+    extraProtein: 0,
+    extraCarbs: 0,
+    extraFat: 0,
+  });
+  const [extras, setExtras] = useState(savedCustom.extraIngredients||[]);
+  const [removed, setRemoved] = useState(savedCustom.removedIngredients||[]);
+  const [search, setSearch] = useState('');
+  const [qty, setQty] = useState('100');
+  const [selectedIng, setSelectedIng] = useState(null);
+  const [saved, setSaved] = useState(false);
+
+  const filtered = INGREDIENT_DB.filter(i=>
+    i.name.toLowerCase().includes(search.toLowerCase())
+  ).slice(0,8);
+
+  const addExtra = () => {
+    if(!selectedIng||!qty) return;
+    const amount = Number(qty);
+    let cal, prot, carb, fat;
+    if(selectedIng.unit==='each'||selectedIng.unit==='tbsp'||selectedIng.unit==='tsp'){
+      cal = Math.round(selectedIng.cal * amount);
+      prot = Math.round(selectedIng.prot * amount);
+      carb = Math.round(selectedIng.carb * amount);
+      fat = Math.round(selectedIng.fat * amount);
+    } else {
+      cal = Math.round(selectedIng.cal * amount / 100);
+      prot = Math.round(selectedIng.prot * amount / 100);
+      carb = Math.round(selectedIng.carb * amount / 100);
+      fat = Math.round(selectedIng.fat * amount / 100);
+    }
+    const entry = {name:selectedIng.name, amount, unit:selectedIng.unit, cal, prot, carb, fat};
+    setExtras(p=>[...p, entry]);
+    setSearch(''); setQty('100'); setSelectedIng(null);
+  };
+
+  const removeExtra = (i) => setExtras(p=>p.filter((_,idx)=>idx!==i));
+  const toggleRemoved = (ing) => setRemoved(p=>
+    p.includes(ing) ? p.filter(x=>x!==ing) : [...p, ing]
+  );
+
+  const totalExtraCal = extras.reduce((s,e)=>s+e.cal,0);
+  const totalExtraProt = extras.reduce((s,e)=>s+e.prot,0);
+  const totalExtraCarb = extras.reduce((s,e)=>s+e.carb,0);
+  const totalExtraFat = extras.reduce((s,e)=>s+e.fat,0);
+  const newCal = r.macros.calories + totalExtraCal;
+  const newProt = r.macros.protein + totalExtraProt;
+
+  const saveCustom = () => {
+    LS.set('customIngredients-'+r.id, {
+      extraIngredients: extras,
+      removedIngredients: removed,
+      extraCalories: totalExtraCal,
+      extraProtein: totalExtraProt,
+    });
+    setSaved(true);
+    setTimeout(()=>{ setSaved(false); onClose(); }, 1000);
+  };
+
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.92)',zIndex:1100,
+      display:'flex',alignItems:'flex-start',justifyContent:'center',
+      padding:'20px 16px',overflowY:'auto',backdropFilter:'blur(6px)'}}>
+      <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:20,
+        width:'100%',maxWidth:600,padding:'24px',margin:'auto'}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
+          <div>
+            <div style={{fontSize:11,color:T.orange,fontWeight:700,letterSpacing:2,
+              textTransform:'uppercase'}}>Customise Recipe</div>
+            <div style={{fontSize:22,fontWeight:900,color:T.cream}}>{r.emoji} {r.name}</div>
+          </div>
+          <button onClick={onClose} style={{background:'none',border:'none',color:T.muted,
+            fontSize:20,cursor:'pointer'}}>✕</button>
+        </div>
+
+        {/* Current macros vs new */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:20}}>
+          {[
+            {l:'Calories',base:r.macros.calories,extra:totalExtraCal,color:T.orange},
+            {l:'Protein',base:r.macros.protein,extra:totalExtraProt,color:'#5AC983'},
+            {l:'Carbs',base:r.macros.carbs,extra:totalExtraCarb,color:'#B88AE0'},
+            {l:'Fat',base:r.macros.fat,extra:totalExtraFat,color:'#E0B84A'},
+          ].map((m,i)=>(
+            <div key={i} style={{background:T.elevated,borderRadius:10,padding:'10px',textAlign:'center'}}>
+              <div style={{fontSize:18,fontWeight:900,color:m.color}}>
+                {m.base+(m.extra||0)}
+              </div>
+              <div style={{fontSize:9,color:T.muted,textTransform:'uppercase',letterSpacing:1}}>{m.l}</div>
+              {m.extra>0&&<div style={{fontSize:9,color:'#5AC983'}}>+{m.extra}</div>}
+            </div>
+          ))}
+        </div>
+
+        {/* Remove existing ingredients */}
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:11,fontWeight:700,color:T.muted,textTransform:'uppercase',
+            letterSpacing:1,marginBottom:10}}>Original Ingredients (tap to remove)</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+            {r.ingredients.filter(i=>!i.toLowerCase().startsWith('note:')).map((ing,i)=>(
+              <button key={i} onClick={()=>toggleRemoved(ing)} style={{
+                background:removed.includes(ing)?'rgba(155,55,55,0.2)':T.elevated,
+                border:'1px solid '+(removed.includes(ing)?'rgba(155,55,55,0.5)':T.border),
+                color:removed.includes(ing)?'#F08080':T.muted,
+                borderRadius:8,padding:'5px 10px',cursor:'pointer',
+                fontSize:12,fontFamily:'inherit',
+                textDecoration:removed.includes(ing)?'line-through':'none',
+              }}>{removed.includes(ing)?'✕ ':''}{ing.split('(')[0].trim()}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Add ingredients */}
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:11,fontWeight:700,color:T.orange,textTransform:'uppercase',
+            letterSpacing:1,marginBottom:10}}>+ Add Ingredients</div>
+          <input type="text" placeholder="Search ingredient (e.g. feta cheese)..." value={search}
+            onChange={e=>{setSearch(e.target.value);setSelectedIng(null);}}
+            style={{width:'100%',background:T.elevated,border:'1px solid '+T.border,
+              borderRadius:8,color:T.cream,fontSize:14,padding:'10px 12px',
+              fontFamily:'inherit',outline:'none',marginBottom:8}}
+            onFocus={e=>e.target.style.borderColor=T.orange}
+            onBlur={e=>e.target.style.borderColor=T.border}
+          />
+          {search&&filtered.length>0&&(
+            <div style={{background:T.elevated,border:'1px solid '+T.border,borderRadius:8,
+              marginBottom:10,overflow:'hidden'}}>
+              {filtered.map((ing,i)=>(
+                <button key={i} onClick={()=>{setSelectedIng(ing);setSearch(ing.name);
+                  setQty(ing.unit==='each'||ing.unit==='tbsp'||ing.unit==='tsp'?'1':'100');}} style={{
+                  width:'100%',background:selectedIng?.name===ing.name?T.orangeDim:'transparent',
+                  border:'none',borderBottom:i<filtered.length-1?'1px solid '+T.border:'none',
+                  color:T.cream,padding:'10px 14px',cursor:'pointer',fontFamily:'inherit',
+                  fontSize:13,textAlign:'left',display:'flex',justifyContent:'space-between',
+                }}>
+                  <span>{ing.name}</span>
+                  <span style={{color:T.muted,fontSize:11}}>
+                    {ing.cal}{ing.unit==='g'?'/100g':'/'+ing.unit}cal
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          {selectedIng&&(
+            <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10}}>
+              <div style={{flex:1,background:T.elevated,borderRadius:8,padding:'10px 12px',
+                fontSize:13,color:T.cream,fontWeight:700}}>{selectedIng.name}</div>
+              <input type="number" value={qty} onChange={e=>setQty(e.target.value)}
+                style={{width:80,background:T.elevated,border:'1px solid '+T.border,
+                  borderRadius:8,color:T.cream,fontSize:14,padding:'10px',
+                  fontFamily:'inherit',outline:'none',textAlign:'center'}}
+              />
+              <span style={{fontSize:12,color:T.muted,width:30}}>
+                {selectedIng.unit==='g'?'g':selectedIng.unit}
+              </span>
+              <button onClick={addExtra} style={{
+                background:T.orange,border:'none',color:'#fff',borderRadius:8,
+                padding:'10px 16px',cursor:'pointer',fontSize:13,fontWeight:700,fontFamily:'inherit',
+              }}>Add</button>
+            </div>
+          )}
+        </div>
+
+        {/* Extra ingredients added */}
+        {extras.length>0&&(
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:11,fontWeight:700,color:'#5AC983',textTransform:'uppercase',
+              letterSpacing:1,marginBottom:10}}>Added Extras</div>
+            {extras.map((e,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:10,
+                background:T.elevated,borderRadius:8,padding:'9px 12px',marginBottom:6}}>
+                <div style={{flex:1}}>
+                  <span style={{fontSize:13,color:T.cream,fontWeight:600}}>{e.name}</span>
+                  <span style={{fontSize:12,color:T.muted}}> · {e.amount}{e.unit}</span>
+                </div>
+                <span style={{fontSize:12,color:T.orange,fontWeight:700}}>+{e.cal}cal</span>
+                <span style={{fontSize:12,color:'#5AC983',fontWeight:700}}>+{e.prot}g</span>
+                <button onClick={()=>removeExtra(i)} style={{
+                  background:'rgba(155,55,55,0.2)',border:'none',color:'#F08080',
+                  borderRadius:6,width:24,height:24,cursor:'pointer',fontSize:12,
+                }}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button onClick={saveCustom} style={{
+          width:'100%',background:saved?T.green:T.orange,border:'none',color:'#fff',
+          borderRadius:10,padding:'13px',cursor:'pointer',fontSize:15,
+          fontWeight:700,fontFamily:'inherit',transition:'background 0.2s',
+        }}>{saved?'✅ Saved!':'Save Customisations'}</button>
+      </div>
+    </div>
+  );
+};
 const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) => {
   const [tab,setTab]=useState('recipe');
+  const [showEditor,setShowEditor]=useState(false);
+  const custom=LS.get('customIngredients-'+r.id,{extraIngredients:[],extraCalories:0,extraProtein:0});
+  const displayCal = r.macros.calories + (custom.extraCalories||0);
+  const displayProt = r.macros.protein + (custom.extraProtein||0);
   useEffect(()=>{
     const h=(e)=>{ if(e.key==='Escape')onClose(); };
     window.addEventListener('keydown',h);
@@ -1050,7 +1300,9 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
   },[onClose]);
   if(!r)return null;
   const ch=CHAPTERS.find(c=>c.id===r.chapter);
+  const hasCustom = custom.extraIngredients&&custom.extraIngredients.length>0;
   return (
+    <>{showEditor&&<RecipeEditor recipe={r} onClose={()=>setShowEditor(false)}/>}
     <div style={{
       position:'fixed',inset:0,background:'rgba(0,0,0,0.9)',zIndex:999,
       display:'flex',alignItems:'flex-start',justifyContent:'center',
@@ -1102,7 +1354,7 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
         <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',borderBottom:`1px solid ${T.border}`}}>
           {[
             {icon:'💪',v:`${r.macros.protein}g`,l:'Protein',hi:true},
-            {icon:'🔥',v:r.macros.calories,l:'Calories'},
+            {icon:'🔥',v:displayCal,l:'Calories'},
             {icon:'🌾',v:`${r.macros.carbs}g`,l:'Carbs'},
             {icon:'🥑',v:`${r.macros.fat}g`,l:'Fat'},
           ].map((s,i)=>(
@@ -1256,6 +1508,9 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
         }}>
           <Btn onClick={()=>onShopAdd(r)} style={{flex:1}}>🛒 Add to Shopping List</Btn>
           <LogMealButton recipe={r} onLogMeal={onLogMeal} onClose={onClose} />
+          <Btn onClick={()=>setShowEditor(true)} variant="ghost">
+            ✏️ {hasCustom?'Edit Recipe':'Customise Recipe'}
+          </Btn>
           <Btn onClick={()=>onFavToggle(r.id)} variant={isFav?'success':'ghost'}>
             {isFav?'♥ Saved':'♡ Save Recipe'}
           </Btn>
@@ -3405,6 +3660,217 @@ const GymPage = () => {
   );
 };
 
+
+// ── FAST FOOD DATABASE ────────────────────────────────────────────────────────
+const FAST_FOOD_DB = [
+  // McDonald's
+  {brand:"McDonald's",item:'Big Mac',cal:563,prot:26,carb:43,fat:33},
+  {brand:"McDonald's",item:'McChicken',cal:404,prot:19,carb:40,fat:19},
+  {brand:"McDonald's",item:'Quarter Pounder',cal:520,prot:30,carb:40,fat:26},
+  {brand:"McDonald's",item:'Large Fries',cal:490,prot:6,carb:66,fat:23},
+  {brand:"McDonald's",item:'Medium Fries',cal:378,prot:4,carb:48,fat:18},
+  {brand:"McDonald's",item:'McDouble',cal:390,prot:23,carb:33,fat:18},
+  {brand:"McDonald's",item:'6pc Nuggets',cal:270,prot:15,carb:16,fat:16},
+  {brand:"McDonald's",item:'10pc Nuggets',cal:450,prot:25,carb:27,fat:26},
+  {brand:"McDonald's",item:'Filet-O-Fish',cal:390,prot:16,carb:39,fat:19},
+  {brand:"McDonald's",item:'McFlurry Oreo',cal:510,prot:12,carb:80,fat:17},
+  {brand:"McDonald's",item:'Cheeseburger',cal:300,prot:15,carb:32,fat:12},
+  // KFC
+  {brand:'KFC',item:'Original Recipe Chicken (piece)',cal:320,prot:22,carb:11,fat:20},
+  {brand:'KFC',item:'Zinger Burger',cal:620,prot:34,carb:57,fat:28},
+  {brand:'KFC',item:'Zinger Box',cal:1080,prot:48,carb:108,fat:49},
+  {brand:'KFC',item:'Regular Chips',cal:365,prot:5,carb:50,fat:17},
+  {brand:'KFC',item:'Large Chips',cal:530,prot:7,carb:72,fat:25},
+  {brand:'KFC',item:'3pc Tender Combo',cal:520,prot:38,carb:38,fat:22},
+  {brand:'KFC',item:'Popcorn Chicken (reg)',cal:360,prot:18,carb:28,fat:20},
+  {brand:'KFC',item:'Potato & Gravy',cal:240,prot:5,carb:34,fat:10},
+  // Hungry Jack's
+  {brand:"Hungry Jack's",item:'Whopper',cal:671,prot:31,carb:52,fat:38},
+  {brand:"Hungry Jack's",item:'Bacon Deluxe',cal:640,prot:35,carb:43,fat:36},
+  {brand:"Hungry Jack's",item:'Chicken Royale',cal:580,prot:29,carb:56,fat:26},
+  {brand:"Hungry Jack's",item:'Large Onion Rings',cal:510,prot:7,carb:64,fat:26},
+  {brand:"Hungry Jack's",item:'Large Fries',cal:450,prot:5,carb:62,fat:21},
+  // Domino's
+  {brand:"Domino's",item:'Pepperoni Pizza (2 slices, Classic)',cal:460,prot:22,carb:50,fat:18},
+  {brand:"Domino's",item:'BBQ Meatlovers (2 slices)',cal:540,prot:28,carb:52,fat:24},
+  {brand:"Domino's",item:'Garlic Bread (piece)',cal:130,prot:3,carb:20,fat:5},
+  {brand:"Domino's",item:'Cheesy Garlic Bread',cal:210,prot:7,carb:24,fat:10},
+  {brand:"Domino's",item:'Chicken Kickers (3pc)',cal:210,prot:14,carb:14,fat:10},
+  // Pizza Hut
+  {brand:'Pizza Hut',item:'Pepperoni Pan Pizza (slice)',cal:290,prot:13,carb:30,fat:14},
+  {brand:'Pizza Hut',item:'BBQ Chicken Pizza (slice)',cal:260,prot:15,carb:30,fat:9},
+  // Subway
+  {brand:'Subway',item:'6" Chicken Classic',cal:310,prot:26,carb:42,fat:5},
+  {brand:'Subway',item:'Footlong Chicken Classic',cal:620,prot:52,carb:84,fat:10},
+  {brand:'Subway',item:'6" Meatball Marinara',cal:480,prot:22,carb:57,fat:18},
+  {brand:'Subway',item:'6" Turkey Breast',cal:280,prot:20,carb:42,fat:4},
+  {brand:'Subway',item:'6" Steak & Cheese',cal:380,prot:27,carb:44,fat:10},
+  // Guzman y Gomez
+  {brand:'GYG',item:'Burrito (Chicken)',cal:650,prot:38,carb:75,fat:20},
+  {brand:'GYG',item:'Burrito Bowl (Chicken)',cal:500,prot:40,carb:55,fat:13},
+  {brand:'GYG',item:'Tacos x2 (Chicken)',cal:420,prot:26,carb:48,fat:14},
+  {brand:'GYG',item:'Nachos (regular)',cal:780,prot:28,carb:90,fat:32},
+  {brand:'GYG',item:'Chips (regular)',cal:390,prot:5,carb:55,fat:18},
+  // Noodle Box
+  {brand:'Noodle Box',item:'Pad Thai (regular)',cal:680,prot:25,carb:90,fat:22},
+  {brand:'Noodle Box',item:'Fried Rice (regular)',cal:620,prot:20,carb:88,fat:18},
+  // Roll'd
+  {brand:"Roll'd",item:'Rice Paper Roll (each)',cal:180,prot:10,carb:24,fat:4},
+  {brand:"Roll'd",item:'Pho (regular)',cal:380,prot:28,carb:45,fat:8},
+  // Other
+  {brand:'Schnitz',item:'Original Schnitzel',cal:520,prot:42,carb:32,fat:22},
+  {brand:'Oporto',item:'Bondi Burger',cal:590,prot:32,carb:56,fat:26},
+  {brand:'Red Rooster',item:'Chicken Roll',cal:480,prot:28,carb:48,fat:18},
+  {brand:'Red Rooster',item:'Quarter Chicken + Chips',cal:640,prot:36,carb:50,fat:28},
+];
+
+const FastFoodPage = ({dashData}) => {
+  const [search, setSearch] = useState('');
+  const [logged, setLogged] = useState([]);
+  const goal = LS.get('portionGoal', {calories:'2000',protein:'180'});
+  const dailyCal = Number(goal.calories||2000);
+  const eatenCal = Number(dashData?.caloriesToday||0);
+  const remaining = Math.max(0, dailyCal - eatenCal);
+
+  const results = search.length>1 ? FAST_FOOD_DB.filter(f=>
+    f.brand.toLowerCase().includes(search.toLowerCase()) ||
+    f.item.toLowerCase().includes(search.toLowerCase())
+  ).slice(0,12) : [];
+
+  const totalLogged = logged.reduce((s,f)=>({
+    cal:s.cal+f.cal, prot:s.prot+f.prot, carb:s.carb+f.carb, fat:s.fat+f.fat
+  }), {cal:0,prot:0,carb:0,fat:0});
+
+  const addToLog = (item) => setLogged(p=>[...p,item]);
+  const removeFromLog = (i) => setLogged(p=>p.filter((_,idx)=>idx!==i));
+
+  return (
+    <div>
+      <div style={{background:'linear-gradient(135deg,rgba(155,55,55,0.15),'+T.surface+')',
+        border:'1px solid rgba(155,55,55,0.3)',borderRadius:16,padding:'22px 24px',marginBottom:22}}>
+        <div style={{fontSize:11,color:'#F08080',fontWeight:700,letterSpacing:2,
+          textTransform:'uppercase',marginBottom:4}}>Cheat Meal Calculator</div>
+        <div style={{fontSize:30,fontWeight:900,color:T.cream,letterSpacing:'-1px',marginBottom:6}}>
+          Fast Food Calories
+        </div>
+        <div style={{fontSize:13,color:T.muted}}>
+          Search any fast food item to see the damage. Know before you eat.
+        </div>
+      </div>
+
+      {/* Remaining budget */}
+      <div style={{background:T.surface,border:'1px solid '+T.border,borderRadius:14,
+        padding:'16px 20px',marginBottom:18,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+        <div>
+          <div style={{fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:1,marginBottom:2}}>Remaining today</div>
+          <div style={{fontSize:28,fontWeight:900,color:remaining>500?'#5AC983':remaining>200?T.orange:T.red,fontFamily:'monospace'}}>
+            {remaining} kcal
+          </div>
+        </div>
+        {logged.length>0&&(
+          <div style={{textAlign:'right'}}>
+            <div style={{fontSize:11,color:T.muted,textTransform:'uppercase',letterSpacing:1,marginBottom:2}}>This cheat meal</div>
+            <div style={{fontSize:28,fontWeight:900,color:T.red,fontFamily:'monospace'}}>
+              {totalLogged.cal} kcal
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Search */}
+      <input type="text" placeholder="Search fast food (e.g. Big Mac, KFC, Dominos)..."
+        value={search} onChange={e=>setSearch(e.target.value)}
+        style={{width:'100%',background:T.surface,border:'1px solid '+T.border,
+          borderRadius:10,color:T.cream,fontSize:14,padding:'12px 16px',
+          fontFamily:'inherit',outline:'none',marginBottom:12}}
+        onFocus={e=>e.target.style.borderColor=T.orange}
+        onBlur={e=>e.target.style.borderColor=T.border}
+      />
+
+      {/* Results */}
+      {results.length>0&&(
+        <div style={{marginBottom:20}}>
+          {results.map((f,i)=>{
+            const pctOfRemaining = remaining>0?Math.round((f.cal/remaining)*100):999;
+            const danger = pctOfRemaining>80;
+            return (
+              <div key={i} style={{background:T.surface,border:'1px solid '+(danger?'rgba(155,55,55,0.3)':T.border),
+                borderRadius:12,padding:'14px 16px',marginBottom:8,
+                display:'flex',alignItems:'center',gap:12}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:12,color:danger?'#F08080':T.muted,fontWeight:600,marginBottom:2}}>{f.brand}</div>
+                  <div style={{fontSize:14,fontWeight:700,color:T.cream,marginBottom:6}}>{f.item}</div>
+                  <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                    <span style={{fontSize:13,fontWeight:700,color:T.orange}}>{f.cal} kcal</span>
+                    <span style={{fontSize:12,color:'#5AC983'}}>{f.prot}g protein</span>
+                    <span style={{fontSize:12,color:'#B88AE0'}}>{f.carb}g carbs</span>
+                    <span style={{fontSize:12,color:'#E0B84A'}}>{f.fat}g fat</span>
+                  </div>
+                  {remaining>0&&<div style={{fontSize:11,color:danger?'#F08080':T.muted,marginTop:4}}>
+                    {pctOfRemaining}% of your remaining {remaining} kcal {danger?'⚠️':''}
+                  </div>}
+                </div>
+                <button onClick={()=>addToLog(f)} style={{
+                  background:T.elevated,border:'1px solid '+T.border,color:T.cream,
+                  borderRadius:8,padding:'8px 12px',cursor:'pointer',fontSize:12,
+                  fontWeight:700,fontFamily:'inherit',flexShrink:0,
+                }}>+ Add</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {search.length>1&&results.length===0&&(
+        <div style={{textAlign:'center',padding:'30px',color:T.muted,fontSize:13}}>
+          No results for "{search}". Try brand name or item name.
+        </div>
+      )}
+
+      {/* Logged cheat items */}
+      {logged.length>0&&(
+        <div style={{background:T.surface,border:'1px solid rgba(155,55,55,0.3)',
+          borderRadius:14,padding:'18px 20px'}}>
+          <div style={{fontSize:11,fontWeight:700,color:'#F08080',textTransform:'uppercase',
+            letterSpacing:1,marginBottom:14}}>Your Cheat Meal</div>
+          {logged.map((f,i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:10,
+              background:T.elevated,borderRadius:9,padding:'10px 12px',marginBottom:8}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,color:T.muted}}>{f.brand}</div>
+                <div style={{fontSize:13,fontWeight:700,color:T.cream}}>{f.item}</div>
+              </div>
+              <span style={{fontSize:13,fontWeight:700,color:T.orange}}>{f.cal} kcal</span>
+              <button onClick={()=>removeFromLog(i)} style={{
+                background:'rgba(155,55,55,0.2)',border:'none',color:'#F08080',
+                borderRadius:6,width:24,height:24,cursor:'pointer',fontSize:12,
+              }}>✕</button>
+            </div>
+          ))}
+          <div style={{marginTop:12,padding:'12px 14px',
+            background:'rgba(155,55,55,0.1)',borderRadius:10,
+            border:'1px solid rgba(155,55,55,0.25)'}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+              <span style={{fontSize:13,color:T.cream,fontWeight:700}}>Total</span>
+              <span style={{fontSize:15,fontWeight:900,color:T.red}}>{totalLogged.cal} kcal</span>
+            </div>
+            <div style={{display:'flex',gap:16}}>
+              <span style={{fontSize:12,color:'#5AC983'}}>{totalLogged.prot}g protein</span>
+              <span style={{fontSize:12,color:'#B88AE0'}}>{totalLogged.carb}g carbs</span>
+              <span style={{fontSize:12,color:'#E0B84A'}}>{totalLogged.fat}g fat</span>
+            </div>
+            <div style={{marginTop:10,fontSize:12,color:totalLogged.cal<=remaining?'#5AC983':'#F08080',fontWeight:700}}>
+              {totalLogged.cal<=remaining
+                ?'Still within your daily budget ✅'
+                :'Over your daily budget by '+(totalLogged.cal-remaining)+' kcal ⚠️'}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SettingsPage = () => (
   <div>
     <div style={{fontSize:28,fontWeight:900,color:T.cream,marginBottom:6}}>Settings</div>
@@ -3441,6 +3907,7 @@ const NAV = [
   {id:'calories',label:'Calorie Calc',icon:'🔢'},
   {id:'camping-mode',label:'Camp Mode',icon:'🏕️'},
   {id:'progress',label:'Progress',icon:'📊'},
+  {id:'fastfood',label:'Cheat Meal',icon:'🍔'},
   {id:'settings',label:'Settings',icon:'⚙️'},
 ];
 
@@ -3712,6 +4179,7 @@ function App() {
     if(page==='progress')return <ProgressPage entries={progressEntries} setEntries={setProgressEntries} dashData={dashData} />;
     if(page==='gym')return <GymPage />;
     if(page==='calories')return <PortionCalcPage dashData={dashData} />;
+    if(page==='fastfood')return <FastFoodPage dashData={dashData} />;
     if(page==='settings')return <SettingsPage />;
     return <Dashboard onNav={navTo} favs={favs} />;
   };
