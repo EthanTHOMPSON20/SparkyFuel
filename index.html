@@ -1304,8 +1304,7 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
   return (
     <>{showEditor&&<RecipeEditor recipe={r} onClose={()=>setShowEditor(false)}/>}
     <div style={{
-      position:'fixed',inset:0,background:'rgba(0,0,0,0.9)',zIndex:999,
-      display:'flex',alignItems:'flex-start',justifyContent:'center',
+      position:'fixed',inset:0,background:'rgba(0,0,0,0.9)',zIndex:999,      display:'flex',alignItems:'flex-start',justifyContent:'center',
       padding:'20px 16px',overflowY:'auto',backdropFilter:'blur(6px)',
     }} onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{
@@ -1517,7 +1516,8 @@ const RecipeModal = ({recipe:r,onClose,onFavToggle,isFav,onShopAdd,onLogMeal}) =
           <Btn onClick={onClose} variant="ghost">Close</Btn>
         </div>
       </div>
-    </div></>
+    </div>
+    </>
   );
 };
 
